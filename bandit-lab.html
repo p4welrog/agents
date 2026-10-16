@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bandit Lab</title>
+<meta name="description" content="Multi-armed bandit game: explore vs exploit, then compare yourself with greedy, ε-greedy, UCB and Thompson sampling (AI Agents in Practice, SWPS).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #2b2b2b; --muted: #6f6f6f; --line: #dddad3;
+  --accent: #c8102e; --accent-soft: #fbe9ec; --blue: #5b8db8; --blue-soft: #e3eef6;
+  --ok: #3f7a2a; --ok-soft: #e8f2e1; --warn: #a86a00; --warn-soft: #fbf0d9; --chip: #f1efe9;
+  --gold: #c99a1e; --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --maxw: 1320px; --code-bg: var(--chip);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+    --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+    --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32; --gold: #f0c64a; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+  --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+  --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32; --gold: #f0c64a; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+code, .mono { font-family: "Fira Mono", ui-monospace, monospace; }
+header.top { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 18px 24px 10px; max-width: var(--maxw); margin: 0 auto; }
+header.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top h1 span { color: var(--accent); }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+.modes { max-width: var(--maxw); margin: 0 auto; padding: 4px 24px 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.modes button { border-radius: 20px; padding: 6px 16px; }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.modes .desc { color: var(--muted); font-size: 13.5px; margin-left: 6px; }
+main { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 40px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 980px) { main { grid-template-columns: minmax(0, 1fr); padding: 0 16px 32px; } header.top, .modes { padding-left: 16px; padding-right: 16px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.panel > h2, .panel h2.h { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin: 0; padding: 12px 16px 0; display: flex; align-items: center; }
+.body { padding: 10px 16px 16px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+button { font: inherit; font-size: 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+select, input[type=number] { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-height: 34px; width: 100%; }
+.field { margin-bottom: 12px; }
+.field > label, .field > .lab { display: flex; align-items: center; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.row { display: flex; gap: 10px; } .row > * { flex: 1; min-width: 0; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; margin: 4px 0; cursor: pointer; }
+.check input { accent-color: var(--accent); }
+.hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
+[hidden] { display: none !important; }
+
+/* machines */
+.hud { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: baseline; padding: 14px 16px 4px; }
+.kv { display: flex; gap: 8px; align-items: baseline; }
+.kv .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: inline-flex; align-items: center; }
+.kv .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.reason { margin: 0 16px; padding: 7px 10px; border-radius: 6px; background: var(--blue-soft); font-size: 14px; min-height: 36px; }
+.machines { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 12px 16px 16px; }
+.arm { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--panel); transition: border-color .15s, box-shadow .15s; }
+.arm.chosen { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.arm.best { border-color: var(--gold); }
+.arm .top { display: flex; align-items: baseline; justify-content: space-between; }
+.arm .name { font-weight: 600; font-size: 18px; }
+.arm .key { font-family: "Fira Mono", monospace; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.reel { height: 54px; border-radius: 8px; background: var(--chip); display: grid; place-items: center; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+.reel.win { background: var(--ok-soft); color: var(--ok); }
+.reel.lose { color: var(--muted); }
+.reel.spin { animation: spin .25s ease-out; }
+@keyframes spin { 0% { transform: translateY(-6px); opacity: .2; } 100% { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .reel.spin { animation: none; } }
+.arm .stats { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; }
+.arm svg { width: 100%; height: 34px; display: block; }
+.arm .pull { width: 100%; font-weight: 600; }
+.arm .truth { font-size: 12.5px; color: var(--gold); font-weight: 600; min-height: 18px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+.controls .sp { flex: 1; }
+.speed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.speed input { width: 100px; accent-color: var(--accent); }
+
+/* results */
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--muted); font-size: 12px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.you td { background: var(--accent-soft); font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+.chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-top: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.verdict { padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); border: 1px solid var(--warn); font-size: 14.5px; margin-bottom: 12px; }
+.verdict p { margin: 0 0 4px; } .verdict p:last-child { margin: 0; }
+.algs { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.algs .check { margin: 2px 0; }
+.algs .sw { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.prog { height: 4px; background: var(--chip); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.prog i { display: block; height: 100%; width: 0; background: var(--accent); }
+.charts2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 760px) { .charts2 { grid-template-columns: minmax(0, 1fr); } }
+.chart h3 { font-size: 14px; margin: 0 0 4px; font-weight: 600; display: flex; align-items: center; }
+.chart .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; }
+
+/* questions */
+.chal { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.chal h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.chal h3 .no { color: var(--accent); font-variant-numeric: tabular-nums; }
+.chal h3 .m { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.chal p { margin: 0 0 8px; font-size: 13.5px; }
+.chal details { font-size: 13px; }
+.chal details + details { margin-top: 4px; }
+.chal details summary { cursor: pointer; color: var(--muted); }
+.chal details div { margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--ok); }
+.chal.active { border-color: var(--accent); }
+.chal button { font-size: 13px; padding: 4px 10px; min-height: 30px; }
+footer { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 30px; color: var(--muted); font-size: 12.5px; }
+/* ---------- help kit: quick start, info tips, help drawer ---------- */
+.helpbtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.helpbtn .q { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--panel); display: inline-grid; place-items: center; font-weight: 600; font-size: 13px; }
+.info { width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 11px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; cursor: pointer; vertical-align: 1px; margin-left: 6px; flex: none; text-transform: none; letter-spacing: 0; }
+.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); }
+.tip { position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13.5px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin-bottom: 0; }
+.tip b { font-weight: 600; }
+.tip code { font-size: 12.5px; }
+.quick { max-width: var(--maxw); margin: 0 auto 4px; padding: 0 24px; }
+.quick .in { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px 10px 14px; font-size: 14px; }
+.quick .lead { font-weight: 600; }
+.quick ol { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; counter-reset: q; flex: 1; }
+.quick li { counter-increment: q; display: flex; gap: 7px; align-items: baseline; }
+.quick li::before { content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.quick .x { margin-left: auto; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); min-height: 28px; padding: 0 4px; }
+.quick .more { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+@media (max-width: 980px) { .quick { padding: 0 16px; } }
+@media (max-width: 700px) { .quick .lead { order: 0; } .quick .x { order: 1; } .quick ol { order: 2; flex-basis: 100%; flex-direction: column; } .quick .more { order: 3; } }
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(560px, 100vw); max-width: 100vw; border: 0; border-left: 1px solid var(--line); padding: 0; background: var(--panel); color: var(--ink); }
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer .dh { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
+dialog.drawer .dh h2 { margin: 0; font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); padding: 0; }
+dialog.drawer .dh button { margin-left: auto; }
+dialog.drawer .db { padding: 6px 18px 28px; font-size: 14.5px; }
+dialog.drawer details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+dialog.drawer summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+dialog.drawer details > div { padding-top: 8px; }
+dialog.drawer p { margin: 0 0 8px; }
+dialog.drawer ul { margin: 0 0 8px; padding-left: 18px; } dialog.drawer li { margin: 3px 0; }
+dialog.drawer table { font-size: 13.5px; }
+dialog.drawer pre { background: var(--code-bg, var(--chip)); padding: 8px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+kbd { font-family: "Fira Mono", ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+
+.home { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: -6px; }
+.home:hover, .home:focus-visible { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="index.html">← All tools</a>
+  <h1>Bandit <span>Lab</span></h1>
+  <p>Exploration vs. exploitation: play the slot machines yourself, then see how learning agents do it.</p>
+  <button class="helpbtn" data-open-help="" aria-haspopup="dialog"><span class="q">?</span>Help</button>
+</header>
+<div class="quick" id="quick" hidden><div class="in">
+  <span class="lead">Quick start</span>
+  <ol>
+    <li><span>Each machine pays <b>+1</b> with its own hidden probability. Pull levers (or keys <kbd>1</kbd>–<kbd>8</kbd>) and win as much as you can.</span></li>
+    <li><span>When the pulls run out, see the true odds and how <b>ε-greedy</b>, <b>UCB</b> and others did on the same machines.</span></li>
+    <li><span>Then let an algorithm play (<b>Who plays</b>) or open the <b>Strategy lab</b>.</span></li>
+  </ol>
+  <button class="more">Full guide</button>
+  <button class="x" aria-label="Hide quick start">×</button>
+</div></div>
+<div class="modes" role="group" aria-label="Mode">
+  <button id="mPlay" aria-pressed="true">Play</button>
+  <button id="mLab" aria-pressed="false">Strategy lab</button>
+  <span class="desc" id="modeDesc"></span>
+</div>
+
+<main>
+  <div class="stack">
+    <!-- PLAY -->
+    <section class="panel" id="playPanel" aria-label="Slot machines">
+      <div class="hud">
+        <div class="kv"><span class="k">Pulls left</span><span class="v" id="left">50</span></div>
+        <div class="kv"><span class="k">Total reward</span><span class="v" id="total">0</span></div>
+        <div class="kv"><span class="k">Player</span><span class="v" style="font-size:17px" id="who">You</span></div>
+      </div>
+      <div class="reason" id="reason" aria-live="polite">Pick a machine and pull its lever.</div>
+      <div class="machines" id="machines"></div>
+      <div class="controls">
+        <button class="primary" id="newGame">New machines</button>
+        <button id="sameGame">Replay these machines</button>
+        <span class="sp"></span>
+        <span id="autoCtl" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button id="aStep">Step</button><button id="aRun">Run</button>
+          <label class="speed">Speed <input type="range" id="aSpeed" min="1" max="30" value="6" aria-label="Pulls per second"></label>
+        </span>
+      </div>
+    </section>
+
+    <section class="panel" id="resultPanel" aria-label="Results" hidden>
+      <h2>How did it go?<button data-tip="results" aria-label="How to read the results"></button></h2>
+      <div class="body">
+        <div class="verdict" id="verdict"></div>
+        <div class="tablewrap" id="resultTable"></div>
+        <div class="chart" style="margin-top:14px">
+          <h3>Cumulative reward on these machines<button data-tip="cumchart" aria-label="About this chart"></button></h3>
+          <p class="sub">Strategies: average of 300 games on these same machines (fresh luck each time).</p>
+          <div id="resultChart"></div>
+          <div class="legend" id="resultLegend"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LAB -->
+    <section class="panel" id="labPanel" aria-label="Strategy lab" hidden>
+      <h2>Strategy lab<button data-tip="lab" aria-label="About the lab"></button></h2>
+      <div class="body">
+        <p style="margin:0 0 10px;font-size:14px">Every strategy plays the same set of randomly generated bandits; results are averaged. Change the settings on the right and press <b>Run experiment</b>.</p>
+        <div class="row" style="align-items:center;flex-wrap:wrap"><button class="primary" id="runLab" style="flex:none">Run experiment</button><span class="hint" id="labInfo" style="flex:1"></span></div>
+        <div class="prog"><i id="labProg"></i></div>
+        <div class="charts2" style="margin-top:14px">
+          <div class="chart"><h3>Average total regret<button data-tip="regret" aria-label="What is regret"></button></h3><p class="sub">Reward lost compared with always pulling the best machine. Lower is better.</p><div id="chRegret"></div></div>
+          <div class="chart"><h3>Best machine chosen<button data-tip="optimal" aria-label="About this chart"></button></h3><p class="sub">Share of runs that pull the truly best machine at step t.</p><div id="chOpt"></div></div>
+        </div>
+        <div class="legend" id="labLegend"></div>
+        <div class="tablewrap" id="labTable" style="margin-top:12px"></div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="stack">
+    <section class="panel" id="playSettings">
+      <h2>Game settings</h2>
+      <div class="body">
+        <div class="field"><label for="whoSel">Who plays?<button data-tip="players" aria-label="About the players"></button></label>
+          <select id="whoSel"></select>
+          <div class="hint" id="whoHint"></div></div>
+        <div class="row">
+          <div class="field"><label for="kSel">Machines</label><select id="kSel"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option></select></div>
+          <div class="field"><label for="nSel">Pulls</label><select id="nSel"><option>20</option><option selected>50</option><option>100</option><option>200</option></select></div>
+        </div>
+        <div class="field"><label for="diffSel">Difficulty<button data-tip="difficulty" aria-label="About difficulty"></button></label>
+          <select id="diffSel"><option value="easy">Easy: odds far apart</option><option value="normal" selected>Normal</option><option value="hard">Hard: best two are close</option></select></div>
+        <label class="check"><input type="checkbox" id="showStats" checked> Show my statistics on the machines</label>
+        <div class="hint">Turn it off to play on gut feeling, like a real gambler.</div>
+      </div>
+    </section>
+
+    <section class="panel" id="labSettings" hidden>
+      <h2>Experiment settings</h2>
+      <div class="body">
+        <div class="row">
+          <div class="field"><label for="lK">Machines (k)</label><select id="lK"><option>2</option><option>5</option><option selected>10</option><option>20</option></select></div>
+          <div class="field"><label for="lT">Pulls (horizon)</label><select id="lT"><option>20</option><option>100</option><option selected>1000</option><option>3000</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="lR">Bandits (runs)</label><select id="lR"><option>100</option><option selected>300</option><option>1000</option></select></div>
+          <div class="field"><label for="lD">Difficulty</label><select id="lD"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
+        </div>
+        <label class="check"><input type="checkbox" id="lNS"> The odds drift over time (non-stationary)<button data-tip="drift" aria-label="About drifting odds"></button></label>
+        <div class="field" style="margin-top:10px"><span class="lab">Strategies<button data-tip="players" aria-label="About the strategies"></button></span><div class="algs" id="algBoxes"></div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Questions to explore</h2>
+      <div class="body" id="challenges"></div>
+    </section>
+  </aside>
+</main>
+
+<dialog class="drawer" id="help" aria-labelledby="helpTitle">
+  <div class="dh"><h2 id="helpTitle">How to use Bandit Lab</h2><button class="close">Close</button></div>
+  <div class="db">
+    <details open data-s="what"><summary>What is this for?</summary><div>
+      <p>A <b>multi-armed bandit</b> is the simplest learning problem with the <b>exploration–exploitation dilemma</b>: several slot machines, each paying +1 with an unknown probability. Every pull either <i>exploits</i> what you already know or <i>explores</i> to learn more.</p>
+      <p>In the lecture's terms, the machines are an unknown, stochastic, sequential environment; the reward is the critic's feedback; and deliberately trying a machine that looks worse is the <b>problem generator</b> at work.</p>
+    </div></details>
+    <details data-s="play"><summary>Play mode</summary><div>
+      <ul>
+        <li>Pull a lever by clicking <b>Pull</b> or pressing <kbd>1</kbd>–<kbd>8</kbd>. Each pull shows <b>+1</b> or <b>0</b>.</li>
+        <li>With statistics on, each machine shows your <b>estimate</b> of its odds (dot) and how <b>uncertain</b> it is (bar): the fewer pulls, the wider the bar.</li>
+        <li>When the pulls run out, the <span style="color:var(--gold);font-weight:600">true odds</span> are revealed and your result is compared with several strategies <b>on the same machines</b>.</li>
+        <li><b>Replay these machines</b> keeps the same hidden odds; <b>New machines</b> draws new ones.</li>
+        <li><b>Who plays?</b> hands the game to an algorithm. Use <b>Step</b> to see, pull by pull, <b>why</b> it chose that machine.</li>
+      </ul>
+    </div></details>
+    <details data-s="lab"><summary>Strategy lab</summary><div>
+      <p>Runs the selected strategies on hundreds of random bandits and plots the averages:</p>
+      <ul>
+        <li><b>Regret</b>: how much reward was lost compared with an agent that knew the best machine from the start. A curve that flattens means the strategy has found the best machine; a straight line means it keeps losing at a constant rate.</li>
+        <li><b>Best machine chosen</b>: the share of runs pulling the truly best machine at each step.</li>
+      </ul>
+      <p>Change one setting at a time and explain the difference.</p>
+    </div></details>
+    <details data-s="algs"><summary>The strategies</summary><div>
+      <ul>
+        <li><b>Random</b>: pure exploration. The baseline to beat.</li>
+        <li><b>Greedy</b>: always pulls the machine with the best average so far. Pure exploitation.</li>
+        <li><b>ε-greedy</b>: greedy, but with probability ε pulls a random machine.</li>
+        <li><b>ε-decreasing</b>: explores a lot at first and less over time (ε = 1/√t).</li>
+        <li><b>ε-greedy, recency-weighted</b>: like ε-greedy, but its estimates weight recent pulls more (step size α = 0.1), so it can follow odds that drift.</li>
+        <li><b>UCB1</b>: “optimism under uncertainty”: picks the machine with the highest <i>upper bound</i>, average + bonus that is large for rarely tried machines. <b>UCB, tuned</b> uses a smaller bonus.</li>
+        <li><b>Thompson sampling</b>: for each machine draws a plausible value of its odds from its posterior distribution and pulls the highest draw: explores exactly as much as its uncertainty justifies.</li>
+      </ul>
+    </div></details>
+    <details data-s="terms"><summary>Key terms</summary><div>
+      <ul>
+        <li><b>Exploitation</b>: using current knowledge to get reward now.</li>
+        <li><b>Exploration</b>: gathering information that may pay off later.</li>
+        <li><b>Estimate</b>: average reward of a machine so far (wins ÷ pulls).</li>
+        <li><b>Regret</b>: expected reward lost compared with always choosing the best machine.</li>
+        <li><b>Stationary / non-stationary</b>: the odds stay fixed / drift over time.</li>
+      </ul>
+      <p>Shortcuts: <kbd>1</kbd>–<kbd>8</kbd> pull, <kbd>?</kbd> this guide, <kbd>Esc</kbd> close.</p>
+    </div></details>
+  </div>
+</dialog>
+
+<footer>AI Agents in Practice · SWPS University · see Russell &amp; Norvig, <i>AIMA</i> §2.4.6 (learning agents, problem generator) and Sutton &amp; Barto, <i>Reinforcement Learning</i>, ch. 2.</footer>
+
+<script>
+"use strict";
+/* ============================================================ RNG */
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function normal(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function gamma(rng, k) { // Marsaglia–Tsang, k >= 1
+  const d = k - 1 / 3, c = 1 / Math.sqrt(9 * d);
+  for (;;) { let x, v; do { x = normal(rng); v = 1 + c * x; } while (v <= 0); v = v * v * v; const u = rng(); if (u < 1 - 0.0331 * x * x * x * x) return d * v; if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v; }
+}
+function beta(rng, a, b) { const x = gamma(rng, a), y = gamma(rng, b); return x / (x + y); }
+const $ = (id) => document.getElementById(id);
+const LET = "ABCDEFGH";
+
+/* ============================================================ bandits */
+function makeOdds(k, diff, rng) {
+  if (diff === "easy") { const base = Array.from({ length: k }, (_, i) => 0.1 + (0.8 * i) / Math.max(1, k - 1)); return shuffle(base.map((p) => clamp(p + (rng() - 0.5) * 0.06)), rng); }
+  if (diff === "hard") { const best = 0.45 + rng() * 0.25; const ps = [best, best - 0.04 - rng() * 0.03]; while (ps.length < k) ps.push(0.1 + rng() * (best - 0.15)); return shuffle(ps, rng); }
+  return Array.from({ length: k }, () => 0.1 + rng() * 0.8);
+}
+function clamp(p) { return Math.min(0.98, Math.max(0.02, p)); }
+function shuffle(a, rng) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ============================================================ strategies
+   each: init(k) -> state; choose(state, t, rng) -> {arm, why}; update(state, arm, r) */
+function argmaxRand(vals, rng) { let m = -Infinity, best = []; vals.forEach((v, i) => { if (v > m + 1e-12) { m = v; best = [i]; } else if (Math.abs(v - m) <= 1e-12) best.push(i); }); return best[Math.floor(rng() * best.length)]; }
+const f2 = (x) => x.toFixed(2);
+function sampleAvg(st, a, r) { st.n[a]++; st.w[a] += r; st.q[a] += (r - st.q[a]) / st.n[a]; }
+function base(k) { return { n: new Array(k).fill(0), w: new Array(k).fill(0), q: new Array(k).fill(0) }; }
+function egreedy(eps, label) {
+  return {
+    init: base, update: sampleAvg,
+    choose(st, t, rng) {
+      const e = typeof eps === "function" ? eps(t) : eps;
+      if (rng() < e) { const a = Math.floor(rng() * st.n.length); return { arm: a, why: "Explore: random pull (probability ε = " + f2(e) + ") → " + LET[a] + "." }; }
+      const a = argmaxRand(st.q, rng);
+      return { arm: a, why: "Exploit: " + LET[a] + " has the best average so far (" + f2(st.q[a]) + ")." + (st.q.filter((q) => q === st.q[a]).length > 1 ? " Tie broken at random." : "") };
+    },
+  };
+}
+function ucbStrat(c) {
+  return {
+    init: base, update: sampleAvg,
+    choose(st) {
+      const un = st.n.findIndex((n) => n === 0);
+      if (un >= 0) return { arm: un, why: "UCB first tries every machine once: " + LET[un] + " has never been pulled." };
+      const tt = st.n.reduce((a, b) => a + b, 0);
+      const u = st.q.map((q, i) => q + c * Math.sqrt(Math.log(tt) / st.n[i]));
+      let a = 0; u.forEach((v, i) => { if (v > u[a]) a = i; });
+      const bestQ = st.q.indexOf(Math.max(...st.q));
+      return { arm: a, bounds: u, why: "Highest upper bound: " + LET[a] + " = average " + f2(st.q[a]) + " + bonus " + f2(u[a] - st.q[a]) + " = " + f2(u[a]) + "." + (a !== bestQ ? " Not the best average (" + LET[bestQ] + "), but uncertain enough to be worth a try." : "") };
+    },
+  };
+}
+const STRATS = {
+  random: { name: "Random", color: "#8a8a8a", hint: "Pulls a random machine every time: pure exploration.", ...{
+    init: base, update: sampleAvg, choose(st, t, rng) { const a = Math.floor(rng() * st.n.length); return { arm: a, why: "Random pull → " + LET[a] + "." }; } } },
+  greedy: { name: "Greedy", color: "#9a6a38", hint: "Always the best average so far (all start at 0). Pure exploitation.", ...egreedy(0) },
+  e001: { name: "ε-greedy (ε = 0.01)", color: "#9ec3e3", hint: "Best average, but 1% of pulls random.", ...egreedy(0.01) },
+  e01: { name: "ε-greedy (ε = 0.1)", color: "#2a67a0", hint: "Best average, but 10% of pulls random.", ...egreedy(0.1) },
+  e03: { name: "ε-greedy (ε = 0.3)", color: "#1b2f5a", hint: "Best average, but 30% of pulls random.", ...egreedy(0.3) },
+  edec: { name: "ε-decreasing (1/√t)", color: "#3f7a2a", hint: "Explores a lot at first, less and less later.", ...egreedy((t) => Math.min(1, 1 / Math.sqrt(t + 1))) },
+  ealpha: { name: "ε-greedy, recency-weighted", color: "#1c8c86", hint: "ε = 0.1; estimates weight recent pulls more (α = 0.1), so they can follow drifting odds.",
+    ...egreedy(0.1), update(st, a, r) { st.n[a]++; st.w[a] += r; st.q[a] += 0.1 * (r - st.q[a]); } },
+  ucb: { name: "UCB1", color: "#c8102e", hint: "Highest upper confidence bound: average + exploration bonus √(2 ln t / n) (the textbook constant).", ...ucbStrat(Math.SQRT2) },
+  ucbt: { name: "UCB, tuned (c = 0.5)", color: "#e8735a", hint: "Same idea with a smaller bonus 0.5·√(ln t / n): less exploration.", ...ucbStrat(0.5) },
+  thompson: { name: "Thompson sampling", color: "#8c2a8c", hint: "Draws a plausible value for each machine from Beta(wins+1, losses+1) and pulls the highest draw.",
+    init: base, update: sampleAvg,
+    choose(st, t, rng) {
+      const s = st.n.map((n, i) => beta(rng, st.w[i] + 1, n - st.w[i] + 1));
+      let a = 0; s.forEach((v, i) => { if (v > s[a]) a = i; });
+      const bestQ = st.q.indexOf(Math.max(...st.q));
+      return { arm: a, samples: s, why: "Sampled values: " + s.map((v, i) => LET[i] + " " + f2(v)).join(", ") + " → " + LET[a] + "." + (a !== bestQ && st.n[bestQ] > 0 ? " An unlucky draw for " + LET[bestQ] + ": that is how it explores." : "") };
+    } },
+};
+const PLAYERS = ["you", "random", "greedy", "e01", "edec", "ucb", "ucbt", "thompson"];
+const COMPARE = ["random", "greedy", "e01", "edec", "ucb", "ucbt", "thompson"];
+
+/* ============================================================ simulation (batch) */
+function simulate(key, odds0, T, rng, drift) {
+  const k = odds0.length, S = STRATS[key], st = S.init(k);
+  const odds = odds0.slice();
+  const cum = new Float32Array(T), opt = new Uint8Array(T), reg = new Float32Array(T);
+  let total = 0, regret = 0;
+  for (let t = 0; t < T; t++) {
+    const { arm } = S.choose(st, t, rng);
+    const r = rng() < odds[arm] ? 1 : 0;
+    S.update(st, arm, r);
+    const best = Math.max(...odds);
+    total += r; regret += best - odds[arm];
+    cum[t] = total; reg[t] = regret; opt[t] = odds[arm] >= best - 1e-12 ? 1 : 0;
+    if (drift) for (let i = 0; i < k; i++) odds[i] = clamp(odds[i] + normal(rng) * 0.02);
+  }
+  return { cum, opt, reg, total, regret, pulls: st.n };
+}
+
+/* ============================================================ play state */
+const store = (() => { try { return JSON.parse(localStorage.getItem("bandit-v1") || "{}") || {}; } catch (e) { return {}; } })();
+function saveStore() { try { localStorage.setItem("bandit-v1", JSON.stringify(store)); } catch (e) {} }
+const G = { k: 5, N: 50, diff: "normal", seed: 1, odds: [], n: [], w: [], hist: [], last: [], player: "you", algState: null, algRng: null, envRng: null, timer: null, done: false, chosen: -1, reason: "" };
+let mode = "play";
+
+function newMachines(keepOdds) {
+  stopAuto();
+  G.k = Number($("kSel").value); G.N = Number($("nSel").value); G.diff = $("diffSel").value;
+  if (!keepOdds || G.odds.length !== G.k) { G.seed = Math.floor(Math.random() * 1e9); G.odds = makeOdds(G.k, G.diff, mulberry32(G.seed)); }
+  G.n = new Array(G.k).fill(0); G.w = new Array(G.k).fill(0); G.last = new Array(G.k).fill(null);
+  G.hist = []; G.done = false; G.chosen = -1;
+  G.envRng = mulberry32(G.seed * 13 + Math.floor(Math.random() * 1e6));
+  G.player = $("whoSel").value;
+  if (G.player !== "you") { G.algState = STRATS[G.player].init(G.k); G.algRng = mulberry32(G.seed + 77); }
+  G.reason = G.player === "you" ? "Pick a machine and pull its lever." : "Press Step to see the first decision, or Run.";
+  $("resultPanel").hidden = true;
+  buildMachines(); renderPlay();
+}
+function pull(i, why) {
+  if (G.done || G.hist.length >= G.N) return;
+  const r = G.envRng() < G.odds[i] ? 1 : 0;
+  G.n[i]++; G.w[i] += r; G.last[i] = r; G.hist.push({ arm: i, r });
+  G.chosen = i;
+  if (G.player !== "you") STRATS[G.player].update(G.algState, i, r);
+  G.reason = why || (G.player === "you" ? "You pulled " + LET[i] + ": " + (r ? "+1!" : "nothing.") : "");
+  renderPlay(i);
+  if (G.hist.length >= G.N) finish();
+}
+function algStep() {
+  if (G.done || G.player === "you") return;
+  const d = STRATS[G.player].choose(G.algState, G.hist.length, G.algRng);
+  G.lastBounds = d.bounds || null; G.lastSamples = d.samples || null;
+  pull(d.arm, d.why);
+}
+function runAuto() {
+  if (G.timer) { stopAuto(); return; }
+  $("aRun").textContent = "Pause";
+  const tick = () => { if (G.done) { stopAuto(); return; } algStep(); G.timer = setTimeout(tick, 1000 / Number($("aSpeed").value)); };
+  tick();
+}
+function stopAuto() { clearTimeout(G.timer); G.timer = null; const b = $("aRun"); if (b) b.textContent = "Run"; }
+
+/* ------------------------------------------------------------ machines UI */
+function buildMachines() {
+  $("machines").innerHTML = G.odds.map((_, i) =>
+    '<div class="arm" id="arm' + i + '"><div class="top"><span class="name">' + LET[i] + '</span><span class="key" aria-hidden="true">' + (i + 1) + '</span></div>' +
+    '<div class="reel" id="reel' + i + '">–</div><div class="stats"><span id="st' + i + '"></span><span id="avg' + i + '"></span></div>' +
+    '<svg id="bar' + i + '" viewBox="0 0 140 34" preserveAspectRatio="none" aria-hidden="true"></svg><div class="truth" id="tr' + i + '"></div>' +
+    '<button class="pull" data-arm="' + i + '" aria-label="Pull machine ' + LET[i] + '">Pull</button></div>').join("");
+  $("machines").querySelectorAll(".pull").forEach((b) => (b.onclick = () => { if (G.player === "you") pull(Number(b.dataset.arm)); }));
+}
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function renderPlay(justPulled) {
+  const show = $("showStats").checked || G.done;
+  const total = G.hist.reduce((s, h) => s + h.r, 0);
+  $("left").textContent = G.N - G.hist.length;
+  $("total").textContent = total;
+  $("who").textContent = G.player === "you" ? "You" : STRATS[G.player].name;
+  $("reason").textContent = G.reason;
+  $("autoCtl").hidden = G.player === "you";
+  const bestP = Math.max(...G.odds);
+  for (let i = 0; i < G.k; i++) {
+    const n = G.n[i], w = G.w[i];
+    const reel = $("reel" + i);
+    reel.textContent = G.last[i] === null ? "–" : G.last[i] ? "+1" : "0";
+    reel.className = "reel" + (G.last[i] === 1 ? " win" : G.last[i] === 0 ? " lose" : "") + (justPulled === i ? " spin" : "");
+    $("st" + i).textContent = show ? n + " pulls · " + w + " wins" : n + " pulls";
+    $("avg" + i).textContent = show && n ? "avg " + (w / n).toFixed(2) : "";
+    $("arm" + i).classList.toggle("chosen", G.chosen === i && G.player !== "you");
+    $("arm" + i).classList.toggle("best", G.done && G.odds[i] === bestP);
+    $("tr" + i).textContent = G.done ? "true odds " + Math.round(G.odds[i] * 100) + "%" + (G.odds[i] === bestP ? " ★ best" : "") : "";
+    // bar: posterior mean ± 2 sd of Beta(w+1, n-w+1), and true odds when done
+    const a = w + 1, b = n - w + 1, m = a / (a + b), sd = Math.sqrt((a * b) / ((a + b) ** 2 * (a + b + 1)));
+    const X = (p) => 4 + p * 132;
+    let s = '<line x1="4" y1="24" x2="136" y2="24" stroke="' + css("--line") + '" stroke-width="2"/>';
+    for (const p of [0, 0.5, 1]) s += '<line x1="' + X(p) + '" y1="20" x2="' + X(p) + '" y2="28" stroke="' + css("--line") + '" stroke-width="1"/>';
+    if (show) {
+      s += '<rect x="' + X(Math.max(0, m - 2 * sd)) + '" y="19" width="' + (X(Math.min(1, m + 2 * sd)) - X(Math.max(0, m - 2 * sd))) + '" height="10" rx="5" fill="' + css("--blue") + '" opacity=".25"/>';
+      if (n) s += '<circle cx="' + X(w / n) + '" cy="24" r="4.5" fill="' + css("--blue") + '"/>';
+      if (G.lastBounds && G.player === "ucb" && !G.done) s += '<line x1="' + X(Math.min(1, G.lastBounds[i])) + '" y1="14" x2="' + X(Math.min(1, G.lastBounds[i])) + '" y2="32" stroke="' + css("--accent") + '" stroke-width="2.5"/>';
+      if (G.lastSamples && G.player === "thompson" && !G.done) s += '<path d="M' + X(G.lastSamples[i]) + ' 13 l-4 -7 h8 z" fill="' + css("--accent") + '"/>';
+    }
+    if (G.done) s += '<path d="M' + X(G.odds[i]) + ' 18 l-5 -9 h10 z" fill="' + css("--gold") + '"/>';
+    $("bar" + i).innerHTML = s;
+    $("machines").querySelector('[data-arm="' + i + '"]').disabled = G.done || G.player !== "you";
+  }
+  $("aStep").disabled = $("aRun").disabled = G.done;
+}
+
+/* ------------------------------------------------------------ results */
+function finish() {
+  G.done = true; stopAuto();
+  const total = G.hist.reduce((s, h) => s + h.r, 0);
+  const bestP = Math.max(...G.odds), bestI = G.odds.indexOf(bestP);
+  const yourBest = G.hist.filter((h) => h.arm === bestI).length / G.N;
+  const R = 300;
+  const rows = COMPARE.map((key) => {
+    const rng = mulberry32(G.seed * 3 + key.length * 101);
+    const totals = [], curve = new Float64Array(G.N); let bestShare = 0;
+    for (let r = 0; r < R; r++) { const s = simulate(key, G.odds, G.N, rng, false); totals.push(s.total); for (let t = 0; t < G.N; t++) curve[t] += s.cum[t] / R; bestShare += s.pulls[bestI] / G.N / R; }
+    totals.sort((a, b) => a - b);
+    const below = totals.filter((x) => x < total).length + 0.5 * totals.filter((x) => x === total).length;
+    return { key, mean: totals.reduce((a, b) => a + b, 0) / R, p10: totals[Math.floor(R * 0.1)], p90: totals[Math.floor(R * 0.9)], bestShare, curve, beatPct: Math.round((below / R) * 100) };
+  });
+  const youCurve = []; let c = 0; for (const h of G.hist) youCurve.push((c += h.r));
+  const who = G.player === "you" ? "You" : STRATS[G.player].name;
+  const exp = G.N * bestP;
+  const expPulled = G.hist.reduce((s, h) => s + G.odds[h.arm], 0);
+  const luck = total - expPulled;
+  const ranked = rows.slice().sort((a, b) => b.mean - a.mean);
+  $("verdict").innerHTML = "<p><b>" + who + ": " + total + " points.</b> Always pulling the best machine (" + LET[bestI] + ", " + Math.round(bestP * 100) + "%) would earn about <b>" + exp.toFixed(1) + "</b> on average. Regret: <b>" + (exp - expPulled).toFixed(1) + "</b> points lost to choices" + (Math.abs(luck) >= 1 ? ", and luck added " + (luck > 0 ? "+" : "") + luck.toFixed(1) : "") + ".</p>" +
+    "<p>" + who + " pulled the best machine in <b>" + Math.round(yourBest * 100) + "%</b> of pulls. Strongest strategy here: <b>" + STRATS[ranked[0].key].name + "</b> (" + ranked[0].mean.toFixed(1) + " on average).</p>";
+  let h = '<table><thead><tr><th>player</th><th class="num">total reward</th><th class="num">typical range (10–90%)</th><th class="num">pulls on best machine</th><th class="num">' + (who === "You" ? "you did better in" : who + " did better in") + "</th></tr></thead><tbody>";
+  h += '<tr class="you"><td>' + who + '</td><td class="num">' + total + '</td><td class="num">–</td><td class="num">' + Math.round(yourBest * 100) + '%</td><td class="num">–</td></tr>';
+  for (const r of rows) h += "<tr><td>" + STRATS[r.key].name + '</td><td class="num">' + r.mean.toFixed(1) + '</td><td class="num">' + r.p10 + "–" + r.p90 + '</td><td class="num">' + Math.round(r.bestShare * 100) + '%</td><td class="num">' + r.beatPct + "% of games</td></tr>";
+  h += "</tbody></table>";
+  $("resultTable").innerHTML = h;
+  const series = rows.map((r) => ({ name: STRATS[r.key].name, color: STRATS[r.key].color, data: Array.from(r.curve) }));
+  series.unshift({ name: who, color: css("--ink"), data: youCurve, thick: true });
+  series.push({ name: "best machine every time", color: css("--gold"), data: Array.from({ length: G.N }, (_, t) => (t + 1) * bestP), dash: true });
+  $("resultChart").innerHTML = lineChart(series, { ymin: 0, xlabel: "pull", ylabel: "reward" });
+  $("resultLegend").innerHTML = series.map((s) => '<span><i style="background:' + s.color + (s.dash ? ";opacity:.7" : "") + '"></i>' + s.name + "</span>").join("");
+  $("resultPanel").hidden = false;
+  renderPlay();
+  G.reason = "Game over. The gold markers show the true odds. Scroll down for the comparison.";
+  $("reason").textContent = G.reason;
+  store.games = (store.games || 0) + 1; saveStore();
+  HELP && HELP.wireInfo($("resultPanel"));
+}
+
+/* ------------------------------------------------------------ chart */
+function lineChart(series, o) {
+  const W = 640, H = 260, pl = 46, pr = 10, pt = 10, pb = 34;
+  const T = Math.max(...series.map((s) => s.data.length));
+  let ymax = o.ymax ?? Math.max(1e-9, ...series.map((s) => Math.max(...s.data)));
+  const ymin = o.ymin ?? 0;
+  const nice = (v) => { const p = Math.pow(10, Math.floor(Math.log10(v))); const m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; };
+  if (o.ymax === undefined) ymax = nice(ymax * 1.05);
+  const X = (t) => pl + (t / Math.max(1, T - 1)) * (W - pl - pr);
+  const Y = (v) => H - pb - ((v - ymin) / (ymax - ymin)) * (H - pt - pb);
+  const ink = css("--muted"), line = css("--line");
+  let s = "";
+  for (let i = 0; i <= 4; i++) { const v = ymin + ((ymax - ymin) * i) / 4; s += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="' + line + '" stroke-width="1"/><text x="' + (pl - 6) + '" y="' + (Y(v) + 4) + '" font-size="11" text-anchor="end" fill="' + ink + '">' + (o.pct ? Math.round(v * 100) + "%" : Number(v.toFixed(1))) + "</text>"; }
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) { const t = Math.round(f * (T - 1)); s += '<text x="' + X(t) + '" y="' + (H - pb + 16) + '" font-size="11" text-anchor="middle" fill="' + ink + '">' + (t + 1) + "</text>"; }
+  s += '<text x="' + (W - pr) + '" y="' + (H - 4) + '" font-size="11" text-anchor="end" fill="' + ink + '">' + (o.xlabel || "") + "</text>";
+  for (const se of series) {
+    const step = Math.max(1, Math.floor(se.data.length / 400));
+    const pts = []; for (let t = 0; t < se.data.length; t += step) pts.push(X(t).toFixed(1) + "," + Y(se.data[t]).toFixed(1));
+    pts.push(X(se.data.length - 1).toFixed(1) + "," + Y(se.data[se.data.length - 1]).toFixed(1));
+    s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + se.color + '" stroke-width="' + (se.thick ? 3 : 2) + '"' + (se.dash ? ' stroke-dasharray="6 5"' : "") + ' stroke-linejoin="round"/>';
+  }
+  return '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Line chart" font-family="Fira Sans, system-ui, sans-serif">' + s + "</svg>";
+}
+
+/* ============================================================ lab */
+const LAB_ALGS = ["random", "greedy", "e001", "e01", "e03", "edec", "ealpha", "ucb", "ucbt", "thompson"];
+const labSel = new Set(store.labSel || ["greedy", "e01", "ucb", "thompson"]);
+function buildLab() {
+  $("algBoxes").innerHTML = LAB_ALGS.map((k) => '<label class="check"><input type="checkbox" data-alg="' + k + '"' + (labSel.has(k) ? " checked" : "") + '><span class="sw" style="background:' + STRATS[k].color + '"></span>' + STRATS[k].name + "</label>").join("");
+  $("algBoxes").querySelectorAll("input").forEach((i) => (i.onchange = () => { i.checked ? labSel.add(i.dataset.alg) : labSel.delete(i.dataset.alg); store.labSel = [...labSel]; saveStore(); }));
+}
+let labRunning = false;
+async function runLab() {
+  if (labRunning) return;
+  const keys = LAB_ALGS.filter((k) => labSel.has(k));
+  if (!keys.length) { $("labInfo").textContent = "Select at least one strategy."; return; }
+  labRunning = true; $("runLab").disabled = true;
+  const K = Number($("lK").value), T = Number($("lT").value), R = Number($("lR").value), D = $("lD").value, NS = $("lNS").checked;
+  const acc = Object.fromEntries(keys.map((k) => [k, { reg: new Float64Array(T), opt: new Float64Array(T), total: 0 }]));
+  const masterSeed = 12345;
+  const t0 = performance.now();
+  for (let r = 0; r < R; r++) {
+    const odds = makeOdds(K, D, mulberry32(masterSeed + r * 7919));
+    for (const k of keys) {
+      const s = simulate(k, odds, T, mulberry32(masterSeed + r * 104729 + k.length * 31 + k.charCodeAt(0)), NS);
+      const a = acc[k];
+      for (let t = 0; t < T; t++) { a.reg[t] += s.reg[t] / R; a.opt[t] += s.opt[t] / R; }
+      a.total += s.total / R;
+    }
+    if (r % 10 === 9) { $("labProg").style.width = ((100 * (r + 1)) / R).toFixed(0) + "%"; await new Promise((res) => setTimeout(res, 0)); }
+  }
+  $("labProg").style.width = "100%";
+  const smooth = (arr) => { const w = Math.max(1, Math.floor(arr.length / 60)); const out = []; for (let i = 0; i < arr.length; i++) { let s = 0, c = 0; for (let j = Math.max(0, i - w); j <= Math.min(arr.length - 1, i + w); j++) { s += arr[j]; c++; } out.push(s / c); } return out; };
+  const rs = keys.map((k) => ({ name: STRATS[k].name, color: STRATS[k].color, data: Array.from(acc[k].reg) }));
+  const os = keys.map((k) => ({ name: STRATS[k].name, color: STRATS[k].color, data: smooth(Array.from(acc[k].opt)) }));
+  $("chRegret").innerHTML = lineChart(rs, { ymin: 0, xlabel: "pull" });
+  $("chOpt").innerHTML = lineChart(os, { ymin: 0, ymax: 1, pct: true, xlabel: "pull" });
+  $("labLegend").innerHTML = keys.map((k) => '<span><i style="background:' + STRATS[k].color + '"></i>' + STRATS[k].name + "</span>").join("");
+  const sorted = keys.slice().sort((a, b) => acc[a].reg[T - 1] - acc[b].reg[T - 1]);
+  let h = '<table><thead><tr><th>strategy</th><th class="num">avg total reward</th><th class="num">avg total regret</th><th class="num">best machine in last 10% of pulls</th></tr></thead><tbody>';
+  for (const k of sorted) { const a = acc[k]; const last = a.opt.slice(Math.floor(T * 0.9)); h += "<tr><td>" + STRATS[k].name + '</td><td class="num">' + a.total.toFixed(1) + '</td><td class="num">' + a.reg[T - 1].toFixed(1) + '</td><td class="num">' + Math.round((last.reduce((x, y) => x + y, 0) / last.length) * 100) + "%</td></tr>"; }
+  $("labTable").innerHTML = h + "</tbody></table>";
+  $("labInfo").textContent = R + " bandits × " + T + " pulls, k = " + K + ", " + D + (NS ? ", drifting odds" : "") + " · " + ((performance.now() - t0) / 1000).toFixed(1) + " s";
+  labRunning = false; $("runLab").disabled = false;
+}
+
+/* ============================================================ questions */
+const QUESTIONS = [
+  { title: "Play a round", m: "play", set: { who: "you", k: 5, n: 50, diff: "normal", stats: true },
+    task: "Play 50 pulls on 5 machines. Before you start: how many pulls will you spend exploring? Afterwards compare yourself with the strategies.",
+    hint: "Look at the ‘pulls on best machine’ column: did you find the best machine? How early did you commit?",
+    notice: "Most people either commit after very few pulls (and sometimes to the wrong machine) or keep sampling too long. Good strategies explore early, then exploit, and never fully stop checking machines that might be better." },
+  { title: "Play on gut feeling", m: "play", set: { who: "you", k: 5, n: 50, diff: "hard", stats: false },
+    task: "Statistics are hidden and the two best machines are close. Play again. Do you explore more or less than before?",
+    hint: "Without the uncertainty bars, how did you decide that a machine was ‘good’?",
+    notice: "Humans overreact to short streaks (a few wins in a row). The bars make uncertainty visible: an estimate from 3 pulls is almost worthless. That is exactly the information UCB and Thompson sampling use." },
+  { title: "The greedy trap", m: "lab", set: { k: 10, t: 1000, r: 300, d: "normal", ns: false, algs: ["random", "greedy", "e01"] },
+    task: "Run greedy, ε-greedy (0.1) and random. Why does greedy plateau far below the best machine?",
+    hint: "With all estimates starting at 0, which machine does greedy keep pulling after its first win?",
+    notice: "Greedy locks onto the first machine that ever paid out and never learns that another is better: no exploration, no learning about the alternatives. A little randomness (ε = 0.1) fixes most of it." },
+  { title: "How much to explore?", m: "lab", set: { k: 10, t: 1000, r: 300, d: "normal", ns: false, algs: ["e001", "e01", "e03", "edec"] },
+    task: "Compare ε = 0.01, 0.1 and 0.3 and ε-decreasing. Which wins early, which late, and why?",
+    hint: "Look at the right chart: what limits the share of best-machine pulls for ε = 0.3?",
+    notice: "Large ε finds the best machine fast but keeps wasting 30% of pulls on random machines forever. Small ε wastes little but finds the best machine slowly. Decreasing ε gets the best of both: explore when knowledge is poor, exploit when it is good." },
+  { title: "Optimism under uncertainty", m: "lab", set: { k: 10, t: 1000, r: 300, d: "normal", ns: false, algs: ["e01", "ucb", "ucbt", "thompson"] },
+    task: "Compare ε-greedy with the two UCB variants and Thompson sampling. Then go to Play, choose ‘UCB1’ as the player and Step through a game.",
+    hint: "In Play, watch the red line (UCB's upper bound). When does UCB pick a machine whose average is not the highest?",
+    notice: "ε-greedy explores blindly: a random pull is as likely to hit a machine it already knows is bad. UCB and Thompson explore where it is informative: machines that are uncertain and could still be the best. Surprise: textbook UCB1 loses to ε-greedy here. Its bonus is deliberately conservative (it guarantees good behaviour in the worst case), so at 1000 pulls it is still over-exploring; with a smaller bonus (c = 0.5) it matches Thompson. How much to explore is itself a design parameter." },
+  { title: "Short life, long life", m: "lab", set: { k: 10, t: 20, r: 1000, d: "normal", ns: false, algs: ["greedy", "e01", "e03", "ucb"] },
+    task: "Run with only 20 pulls, then with 3000. Does the ranking of strategies change?",
+    hint: "Exploration is an investment. When can it pay back?",
+    notice: "With a short horizon there is little time to profit from what you learn, so exploring heavily (UCB tries every machine first) costs more than it returns. The value of information depends on how long you will use it." },
+  { title: "The world changes", m: "lab", set: { k: 5, t: 3000, r: 300, d: "normal", ns: true, algs: ["e01", "ealpha", "ucb", "thompson"] },
+    task: "Now the odds drift slowly. Which strategy copes best, and why?",
+    hint: "Sample averages give pull 1 the same weight as pull 2999. Is that sensible if the machines change?",
+    notice: "In a non-stationary environment old evidence goes stale. Plain ε-greedy and Thompson sampling average over all pulls and grow over-confident in outdated estimates. The recency-weighted ε-greedy forgets old pulls, and UCB1 never stops exploring: both follow the drift far better. As the lecture said: in non-stationary environments exploration never stops." },
+];
+function renderQuestions() {
+  $("challenges").innerHTML = QUESTIONS.map((q, i) => '<div class="chal' + (store.q === i ? " active" : "") + '"><h3><span class="no">' + (i + 1) + "</span>" + q.title + '<span class="m">' + (q.m === "play" ? "Play" : "Lab") + "</span></h3><p>" + q.task + '</p><button data-q="' + i + '">Set up</button><details style="margin-top:6px"><summary>Hint</summary><div>' + q.hint + "</div></details><details><summary>What to notice</summary><div>" + q.notice + "</div></details></div>").join("");
+  $("challenges").querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => setupQuestion(Number(b.dataset.q))));
+}
+function setupQuestion(i) {
+  const q = QUESTIONS[i]; store.q = i; saveStore();
+  if (q.m === "play") {
+    setMode("play");
+    $("whoSel").value = q.set.who; $("kSel").value = q.set.k; $("nSel").value = q.set.n; $("diffSel").value = q.set.diff; $("showStats").checked = q.set.stats;
+    syncWhoHint(); newMachines(false);
+  } else {
+    setMode("lab");
+    $("lK").value = q.set.k; $("lT").value = q.set.t; $("lR").value = q.set.r; $("lD").value = q.set.d; $("lNS").checked = q.set.ns;
+    labSel.clear(); q.set.algs.forEach((a) => labSel.add(a)); store.labSel = [...labSel]; saveStore(); buildLab();
+    runLab();
+  }
+  renderQuestions();
+}
+
+/* ============================================================ wiring */
+function setMode(m) {
+  mode = m;
+  $("mPlay").setAttribute("aria-pressed", m === "play"); $("mLab").setAttribute("aria-pressed", m === "lab");
+  $("playPanel").hidden = $("playSettings").hidden = m !== "play";
+  $("resultPanel").hidden = m !== "play" || !G.done;
+  $("labPanel").hidden = $("labSettings").hidden = m !== "lab";
+  $("modeDesc").textContent = m === "play" ? "Win as much as you can in a limited number of pulls." : "Compare strategies over hundreds of random bandits.";
+  if (m !== "play") stopAuto();
+}
+function syncWhoHint() { const v = $("whoSel").value; $("whoHint").textContent = v === "you" ? "You choose every pull." : STRATS[v].hint + " Use Step to see its reasoning."; }
+$("whoSel").innerHTML = PLAYERS.map((p) => '<option value="' + p + '">' + (p === "you" ? "You" : STRATS[p].name) + "</option>").join("");
+$("whoSel").onchange = () => { syncWhoHint(); newMachines(true); };
+$("kSel").onchange = $("nSel").onchange = $("diffSel").onchange = () => newMachines(false);
+$("showStats").onchange = () => renderPlay();
+$("newGame").onclick = () => newMachines(false);
+$("sameGame").onclick = () => newMachines(true);
+$("aStep").onclick = () => { stopAuto(); algStep(); };
+$("aRun").onclick = runAuto;
+$("mPlay").onclick = () => setMode("play");
+$("mLab").onclick = () => setMode("lab");
+$("runLab").onclick = runLab;
+document.addEventListener("keydown", (e) => {
+  if (mode !== "play" || G.player !== "you" || e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  const i = Number(e.key) - 1;
+  if (i >= 0 && i < G.k) { e.preventDefault(); pull(i); }
+});
+
+/* ---------- help kit ---------- */
+function helpKit(opts) {
+  // tips: {id: html}; buttons with data-tip="id" become info buttons
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  function ensureTip(id) {
+    if (document.getElementById("tip-" + id) || !opts.tips[id]) return;
+    const d = document.createElement("div");
+    d.id = "tip-" + id; d.className = "tip"; d.setAttribute("popover", ""); d.setAttribute("role", "note");
+    d.innerHTML = opts.tips[id];
+    host.appendChild(d);
+  }
+  function wireInfo(root) {
+    (root || document).querySelectorAll("[data-tip]:not([data-wired])").forEach((b) => {
+      const id = b.dataset.tip;
+      ensureTip(id);
+      b.dataset.wired = "1";
+      b.classList.add("info"); b.type = "button"; b.textContent = "i";
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", "More about this");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const p = document.getElementById("tip-" + id);
+        if (!p) return;
+        if (typeof p.togglePopover !== "function") { alert(p.textContent); return; }
+        p._anchor = b;
+        p.togglePopover();
+      });
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    const p = e.target;
+    if (!p.classList || !p.classList.contains("tip")) return;
+    const b = p._anchor;
+    if (b) b.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+    if (e.newState === "open" && b) place(p);
+  }, true);
+  function place(p) {
+    const b = p._anchor; if (!b) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    if (r.bottom < 0 || r.top > innerHeight || !b.isConnected) { p.hidePopover && p.hidePopover(); return; }
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+  }
+  const replace = () => document.querySelectorAll(".tip:popover-open").forEach(place);
+  addEventListener("scroll", replace, { passive: true, capture: true });
+  addEventListener("resize", replace);
+
+  // quick start strip
+  const qk = opts.key + "-quick-hidden";
+  const quick = document.getElementById("quick");
+  let hidden = false;
+  try { hidden = localStorage.getItem(qk) === "1"; } catch (e) {}
+  if (quick) {
+    quick.hidden = hidden;
+    quick.querySelector(".x").onclick = () => { quick.hidden = true; try { localStorage.setItem(qk, "1"); } catch (e) {} };
+    const more = quick.querySelector(".more"); if (more) more.onclick = () => openHelp();
+  }
+  // drawer
+  const dlg = document.getElementById("help");
+  function openHelp(section) {
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (section) { const d = dlg.querySelector('details[data-s="' + section + '"]'); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }
+  }
+  if (dlg) {
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  document.querySelectorAll("[data-open-help]").forEach((b) => (b.onclick = () => openHelp(b.dataset.openHelp)));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "?" ) { e.preventDefault(); dlg && dlg.open ? dlg.close() : openHelp(); }
+  });
+  wireInfo();
+  return { wireInfo, openHelp, firstVisit: !hidden };
+}
+
+const TIPS = {
+  players: "<p><b>Random</b>: pure exploration. <b>Greedy</b>: pure exploitation. <b>ε-greedy</b>: greedy with a share ε of random pulls. <b>ε-decreasing</b>: explores less over time. <b>Recency-weighted</b>: forgets old pulls (for drifting odds). <b>UCB1</b>: picks the highest optimistic estimate. <b>Thompson</b>: picks the best of random plausible values.</p><p>Full descriptions: Help → The strategies.</p>",
+  difficulty: "<p><b>Easy</b>: the odds are spread out, so the best machine stands out quickly. <b>Hard</b>: the best two machines differ by only a few percent, so telling them apart takes many pulls.</p>",
+  results: "<p>Every strategy played these <b>same machines</b> 300 times with fresh luck; the table shows its average and the range of its typical results.</p><p><b>Did better in</b>: in what share of those games the strategy did worse than you, i.e. how good your result was against it. One game of 50 pulls is noisy: a lucky streak can beat any strategy once.</p>",
+  cumchart: "<p>Total reward after each pull. Your line is thick and black; the dashed gold line is what always pulling the best machine would earn on average.</p><p>The vertical gap at the end is (roughly) your regret.</p>",
+  lab: "<p>All strategies play exactly the same random bandits, so differences come from the strategies, not from luck. More runs = smoother curves.</p>",
+  regret: "<p><b>Regret</b> after t pulls = Σ (best odds − odds of the machine you pulled). It is the expected reward you gave up by not knowing the best machine.</p><p>A curve that bends and flattens: the strategy has learned. A straight line: it keeps losing at the same rate forever (greedy stuck on a bad machine, or ε-greedy's constant random pulls).</p>",
+  optimal: "<p>At each step, the fraction of the runs in which the strategy pulled the truly best machine. It shows how fast a strategy finds the best machine and how much it keeps exploring afterwards.</p>",
+  drift: "<p>At every pull each machine's odds change by a small random amount. Old observations become misleading: a strategy must keep exploring and give recent pulls more weight.</p>",
+  demo: "<p>Like this. Click elsewhere or press <kbd>Esc</kbd> to close.</p>",
+};
+let HELP = helpKit({ key: "bd", tips: TIPS });
+syncWhoHint(); buildLab(); renderQuestions(); setMode("play"); newMachines(false);
+</script>
+</body>
+</html>

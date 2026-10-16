@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dissect an LLM Agent</title>
+<meta name="description" content="Label the steps of real LLM agent runs with the concepts of the agent lecture: goal, built-in knowledge, percept, deliberation, action, state (AI Agents in Practice, SWPS).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #2b2b2b; --muted: #6f6f6f; --line: #dddad3;
+  --accent: #c8102e; --accent-soft: #fbe9ec; --blue: #5b8db8; --blue-soft: #e3eef6;
+  --ok: #3f7a2a; --ok-soft: #e8f2e1; --warn: #a86a00; --warn-soft: #fbf0d9; --chip: #f1efe9;
+  --agent: #5b8db8; --agent-soft: #dfeaf3; --env: #7c9a4a; --env-soft: #e9f0de;
+  --L-goal: #a86a00; --L-prior: #6f6f6f; --L-percept: #2a67a0; --L-think: #8c2a8c; --L-action: #c8102e; --L-state: #2f7a3a;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --maxw: 1360px; --code-bg: var(--chip);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+    --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+    --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32;
+    --agent: #8ab6dc; --agent-soft: #23303b; --env: #a5c46f; --env-soft: #2a3322;
+    --L-goal: #f0b24a; --L-prior: #b5b3ad; --L-percept: #8ec5f2; --L-think: #e08ee0; --L-action: #ff7a8a; --L-state: #98d07a; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+  --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+  --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32;
+  --agent: #8ab6dc; --agent-soft: #23303b; --env: #a5c46f; --env-soft: #2a3322;
+  --L-goal: #f0b24a; --L-prior: #b5b3ad; --L-percept: #8ec5f2; --L-think: #e08ee0; --L-action: #ff7a8a; --L-state: #98d07a; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+code, .mono { font-family: "Fira Mono", ui-monospace, monospace; }
+header.top { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 18px 24px 10px; max-width: var(--maxw); margin: 0 auto; }
+header.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top h1 span { color: var(--accent); }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+main { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 40px; display: grid; grid-template-columns: 220px minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 1180px) { main { grid-template-columns: 220px minmax(0, 1fr); } main > .right { grid-column: 2; position: static !important; } }
+@media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); padding: 0 16px 32px; } main > .right { grid-column: auto; } header.top { padding-left: 16px; padding-right: 16px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.panel > h2, .panel h2.h { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin: 0; padding: 12px 16px 0; display: flex; align-items: center; }
+.body { padding: 10px 16px 16px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+.right { position: sticky; top: 12px; }
+button { font: inherit; font-size: 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.small { font-size: 12.5px; color: var(--muted); }
+[hidden] { display: none !important; }
+
+#list { list-style: none; margin: 0; padding: 0; }
+#list li button { width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 6px 8px; display: flex; gap: 8px; align-items: center; min-height: 34px; background: transparent; }
+#list li button:hover { background: var(--chip); }
+#list li button[aria-current="true"] { background: var(--accent-soft); font-weight: 500; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+.dot.done { background: var(--ok); border-color: var(--ok); }
+.dot.part { background: var(--warn); border-color: var(--warn); }
+#listPanel summary { cursor: pointer; list-style: none; }
+#listPanel summary::-webkit-details-marker { display: none; }
+#listPanel summary h2 { display: inline-flex; padding: 0; margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); }
+@media (min-width: 861px) { #listPanel summary { pointer-events: none; } }
+@media (max-width: 860px) { #listPanel summary::after { content: "▾ hide"; float: right; font-size: 12.5px; color: var(--accent); } #listPanel details:not([open]) summary::after { content: "▸ show list"; } }
+
+/* labels legend */
+.labels { display: flex; flex-direction: column; gap: 6px; }
+.lab { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.lab .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; transform: translateY(1px); }
+.lab b { font-weight: 600; }
+
+/* transcript */
+.intro h1 { font-size: 21px; margin: 0 0 2px; font-weight: 600; }
+.intro p { margin: 6px 0 0; max-width: 80ch; }
+.steps { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 16px; }
+.st { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); transition: box-shadow .15s, border-color .15s; }
+.st.focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.st .hd { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.st .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; width: 22px; }
+.role { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; border-radius: 4px; padding: 1px 7px; }
+.role { background: var(--chip); color: var(--muted); }
+.st .tok { margin-left: auto; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.st .txt { white-space: pre-wrap; font-size: 14.5px; }
+.st .txt.mono { font-family: "Fira Mono", monospace; font-size: 13px; background: var(--chip); border-radius: 6px; padding: 6px 8px; overflow-x: auto; white-space: pre; }
+.st .txt.it { font-style: italic; color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chips label { position: relative; }
+.chips input { position: absolute; opacity: 0; pointer-events: none; }
+.chips span { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 16px; padding: 3px 11px; font-size: 13px; cursor: pointer; user-select: none; }
+.chips span i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.chips label:hover span { border-color: var(--muted); }
+.chips input:checked + span { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.chips input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+.chips input:disabled + span { cursor: default; }
+.chips span.acc { box-shadow: 0 0 0 2px var(--ok); }
+.st.r-ok { border-color: var(--ok); }
+.st.r-bad { border-color: var(--accent); }
+.why { margin-top: 8px; font-size: 13.5px; padding: 6px 10px; border-radius: 6px; }
+.r-ok .why { background: var(--ok-soft); } .r-bad .why { background: var(--accent-soft); }
+.why b { font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+.score { font-size: 15px; }
+.score b { font-size: 18px; }
+
+/* quiz */
+.qz { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.qz h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.qz .opts { display: flex; flex-direction: column; gap: 5px; }
+.qz .opts label { display: flex; gap: 8px; align-items: flex-start; font-size: 14.5px; padding: 5px 8px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
+.qz .opts label:hover { background: var(--chip); }
+.qz .opts input { accent-color: var(--accent); margin-top: 4px; }
+.qz .opts label.acc { border-color: var(--ok); background: var(--ok-soft); }
+.qz .opts label.wrong { border-color: var(--accent); background: var(--accent-soft); }
+.qz .exp { margin-top: 8px; font-size: 13.5px; padding: 6px 10px; border-left: 3px solid var(--ok); }
+
+/* loop diagram + meter */
+.loop svg { width: 100%; max-width: 380px; height: auto; display: block; margin: 0 auto; }
+.meter { margin-top: 10px; }
+.meter .row { display: flex; justify-content: space-between; font-size: 13px; }
+.meter .track { height: 12px; border-radius: 6px; background: var(--chip); overflow: hidden; margin-top: 4px; position: relative; }
+.meter .fill { height: 100%; background: var(--L-state); border-radius: 6px; transition: width .25s; }
+.meter .note { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+footer { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 30px; color: var(--muted); font-size: 12.5px; }
+/* ---------- help kit: quick start, info tips, help drawer ---------- */
+.helpbtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.helpbtn .q { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--panel); display: inline-grid; place-items: center; font-weight: 600; font-size: 13px; }
+.info { width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 11px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; cursor: pointer; vertical-align: 1px; margin-left: 6px; flex: none; text-transform: none; letter-spacing: 0; }
+.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); }
+.tip { position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13.5px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin-bottom: 0; }
+.tip b { font-weight: 600; }
+.tip code { font-size: 12.5px; }
+.quick { max-width: var(--maxw); margin: 0 auto 4px; padding: 0 24px; }
+.quick .in { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px 10px 14px; font-size: 14px; }
+.quick .lead { font-weight: 600; }
+.quick ol { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; counter-reset: q; flex: 1; }
+.quick li { counter-increment: q; display: flex; gap: 7px; align-items: baseline; }
+.quick li::before { content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.quick .x { margin-left: auto; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); min-height: 28px; padding: 0 4px; }
+.quick .more { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+@media (max-width: 980px) { .quick { padding: 0 16px; } }
+@media (max-width: 700px) { .quick .lead { order: 0; } .quick .x { order: 1; } .quick ol { order: 2; flex-basis: 100%; flex-direction: column; } .quick .more { order: 3; } }
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(560px, 100vw); max-width: 100vw; border: 0; border-left: 1px solid var(--line); padding: 0; background: var(--panel); color: var(--ink); }
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer .dh { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
+dialog.drawer .dh h2 { margin: 0; font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); padding: 0; }
+dialog.drawer .dh button { margin-left: auto; }
+dialog.drawer .db { padding: 6px 18px 28px; font-size: 14.5px; }
+dialog.drawer details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+dialog.drawer summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+dialog.drawer details > div { padding-top: 8px; }
+dialog.drawer p { margin: 0 0 8px; }
+dialog.drawer ul { margin: 0 0 8px; padding-left: 18px; } dialog.drawer li { margin: 3px 0; }
+dialog.drawer table { font-size: 13.5px; }
+dialog.drawer pre { background: var(--code-bg, var(--chip)); padding: 8px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+kbd { font-family: "Fira Mono", ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+
+.home { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: -6px; }
+.home:hover, .home:focus-visible { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="index.html">← All tools</a>
+  <h1>Dissect an <span>LLM Agent</span></h1>
+  <p>An LLM agent is still an agent: find the percepts, actions, state and goals in real runs.</p>
+  <button class="helpbtn" data-open-help="" aria-haspopup="dialog"><span class="q">?</span>Help</button>
+</header>
+<div class="quick" id="quick" hidden><div class="in">
+  <span class="lead">Quick start</span>
+  <ol>
+    <li><span>Read the agent's run step by step. Click a step to see where it sits in the agent loop (right).</span></li>
+    <li><span>Give every step a <b>label</b>: goal, built-in knowledge, percept, deliberation, action or state update. Then <b>Check labels</b>.</span></li>
+    <li><span>Answer the <b>questions</b> under the run about its architecture and environment.</span></li>
+  </ol>
+  <button class="more">Full guide</button>
+  <button class="x" aria-label="Hide quick start">×</button>
+</div></div>
+
+<main>
+  <aside class="stack">
+    <section class="panel body" id="listPanel" style="padding-top:12px">
+      <details open id="listDetails">
+        <summary><h2>Agent runs</h2> <span class="small" id="listCount"></span></summary>
+        <ul id="list" style="margin-top:6px"></ul>
+      </details>
+    </section>
+    <section class="panel">
+      <h2>The labels<button data-tip="labels" aria-label="About the labels"></button></h2>
+      <div class="body labels" id="legend"></div>
+    </section>
+  </aside>
+
+  <div class="stack">
+    <section class="panel">
+      <div class="body intro" id="intro"></div>
+      <div class="steps" id="steps"></div>
+      <div class="actions"><button class="primary" id="checkLabels">Check labels</button><button id="retryLabels" hidden>Try again</button><span class="score" id="labScore"></span><span class="small" id="labMsg"></span></div>
+    </section>
+    <section class="panel">
+      <h2>Questions about this run</h2>
+      <div class="body" id="quiz"></div>
+    </section>
+  </div>
+
+  <div class="stack right">
+    <section class="panel loop">
+      <h2>Where is this step?<button data-tip="loop" aria-label="About the diagram"></button></h2>
+      <div class="body"><div id="loop"></div>
+        <div class="small" id="loopCap">Click a step in the run.</div>
+        <div class="meter"><div class="row"><span style="display:inline-flex;align-items:center">Context window<button data-tip="context" aria-label="About the context window"></button></span><b id="ctxVal" style="white-space:nowrap">0</b></div><div class="track"><div class="fill" id="ctxFill" style="width:0"></div></div><div class="note" id="ctxNote"></div></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog class="drawer" id="help" aria-labelledby="helpTitle">
+  <div class="dh"><h2 id="helpTitle">How to use “Dissect an LLM Agent”</h2><button class="close">Close</button></div>
+  <div class="db">
+    <details open data-s="what"><summary>What is this for?</summary><div>
+      <p>The lecture's vocabulary (percepts, actions, internal state, goals, built-in knowledge) was invented long before large language models, and it still describes them precisely. Here you take real-looking runs of LLM agents apart and map every step onto that vocabulary.</p>
+      <p>The goal is to see that an LLM agent is a <b>model-based, goal-directed agent</b> whose agent program is a language model, whose actuators are tools, and whose internal state is mostly its context window.</p>
+    </div></details>
+    <details data-s="how"><summary>How it works</summary><div>
+      <ol>
+        <li>Pick a run on the left. Each card is one step: system prompt, user message, the model's reasoning, a tool call, a tool result, a memory write, or a step of the harness (the software running the model).</li>
+        <li>Click a card: the diagram on the right shows where the step's label belongs in the agent loop, and the meter shows how full the context window is at that moment.</li>
+        <li>Choose a label for every card and press <b>Check labels</b>. Some steps genuinely have two defensible labels; both are accepted and the explanation says why.</li>
+        <li>Answer the questions under the run. Each has an explanation.</li>
+      </ol>
+    </div></details>
+    <details data-s="labels"><summary>The six labels</summary><div>
+      <ul>
+        <li><b style="color:var(--L-goal)">Goal</b>: what the agent is asked to achieve; desirable states of the world.</li>
+        <li><b style="color:var(--L-prior)">Built-in knowledge</b>: what the designer put in before the run: system prompt, rules, tool descriptions (and the model's trained weights).</li>
+        <li><b style="color:var(--L-percept)">Percept</b>: new information arriving from the environment: tool results, user messages, errors.</li>
+        <li><b style="color:var(--L-think)">Deliberation</b>: the agent program at work: interpreting percepts, predicting “what happens if I do A”, choosing.</li>
+        <li><b style="color:var(--L-action)">Action</b>: changes or queries the environment through an actuator: a tool call, a message to the user.</li>
+        <li><b style="color:var(--L-state)">State update</b>: something kept for later decisions: notes, summaries, a memory file.</li>
+      </ul>
+    </div></details>
+    <details data-s="mapping"><summary>LLM agent ↔ classic agent</summary><div>
+      <table><tbody>
+        <tr><td><b>Agent program</b></td><td>the LLM (+ the harness loop that calls it)</td></tr>
+        <tr><td><b>Architecture</b></td><td>servers, the harness, the sandbox running tools</td></tr>
+        <tr><td><b>Sensors</b></td><td>tool outputs, user messages, files read</td></tr>
+        <tr><td><b>Actuators</b></td><td>tool calls, messages, file edits, API requests</td></tr>
+        <tr><td><b>Internal state</b></td><td>the context window (+ external memory / notes)</td></tr>
+        <tr><td><b>UPDATE-STATE</b></td><td>appending to context, summarising (compaction), writing notes</td></tr>
+        <tr><td><b>Goals</b></td><td>the user's task; constraints in the system prompt</td></tr>
+        <tr><td><b>Learning</b></td><td>training and fine-tuning (RLHF) change the weights; within a run, adaptation is state, not learning</td></tr>
+      </tbody></table>
+    </div></details>
+    <details data-s="data"><summary>Your progress</summary><div>
+      <p>Labels and answers are saved in this browser only. <b>Try again</b> clears the labels of one run.</p>
+      <p>Shortcut: <kbd>?</kbd> opens this guide, <kbd>Esc</kbd> closes it.</p>
+    </div></details>
+  </div>
+</dialog>
+
+<footer>AI Agents in Practice · SWPS University · fictional but realistic agent runs; concepts from Russell &amp; Norvig, <i>AIMA</i> ch. 2.</footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const LABELS = [
+  { k: "goal", name: "Goal", d: "what it should achieve" },
+  { k: "prior", name: "Built-in knowledge", d: "set by the designer before the run" },
+  { k: "percept", name: "Percept", d: "new information from the environment" },
+  { k: "think", name: "Deliberation", d: "reasoning, predicting, choosing" },
+  { k: "action", name: "Action", d: "acts on / queries the environment" },
+  { k: "state", name: "State update", d: "kept for later decisions" },
+];
+const LNAME = Object.fromEntries(LABELS.map((l) => [l.k, l.name]));
+const ROLE = { system: "system prompt", user: "user", think: "model · reasoning", call: "model · tool call", result: "tool result", model: "model · message", memory: "model · memory", harness: "harness" };
+
+/* ============================================================ runs
+   step: {r: role, t: text, mono?: bool, a: [accepted labels], why, tok: tokens added (negative = removed), set?: absolute tokens} */
+const RUNS = [
+  {
+    id: "coder", title: "Coding agent fixes a bug", window: 16000,
+    intro: "A coding agent works in a repository. The CI build is red. Watch it diagnose and fix the problem.",
+    steps: [
+      { r: "system", t: "You are a coding agent working in the user's repository.\nTools: run_tests(), read_file(path), edit_file(path, old, new), write_notes(text).\nNever modify files under tests/ unless the user asks.", a: ["prior"], tok: 1800,
+        why: "Written by the designer before the run: rules and tool descriptions. It is built-in knowledge; the rule about tests/ is also part of the performance measure the designer has in mind." },
+      { r: "user", t: "CI is red since yesterday: test_discount fails. Please fix it.", a: ["goal", "percept"], tok: 40,
+        why: "It sets the <b>goal</b> (a passing, correct build). Technically it also arrives as a <b>percept</b> (a message from the environment): both are accepted." },
+      { r: "think", t: "I should first see what the test expects. Running the tests will show the failing assertion.", a: ["think"], tok: 60,
+        why: "Deliberation: the model predicts the result of an action (‘running the tests will show…’) and chooses it. That is goal-based reasoning: what happens if I do A?" },
+      { r: "call", t: "run_tests()", mono: true, a: ["action"], tok: 20,
+        why: "An action through an actuator (the test runner). It doesn't change the code, but it changes what the agent will perceive: an <b>information-gathering</b> action." },
+      { r: "result", t: "FAILED tests/test_cart.py::test_discount\n  assert cart.total() == 81.0\n  where cart.total() = 90.0\n1 failed, 41 passed", mono: true, a: ["percept"], tok: 120,
+        why: "A percept: new information from the environment, delivered through the tool's output (a sensor)." },
+      { r: "think", t: "Expected 81 = 100 × 0.9 × 0.9, so two discounts should apply, but only one does. The loyalty discount is probably skipped. Let me read the pricing code.", a: ["think"], tok: 70,
+        why: "Interpreting the percept and forming a hypothesis about the hidden state of the world (the code). The environment is partially observable: the agent must infer what it can't see." },
+      { r: "call", t: 'read_file("cart/pricing.py")', mono: true, a: ["action"], tok: 20,
+        why: "Another information-gathering action: reading a file is how the agent ‘looks around’ in a partially observable environment." },
+      { r: "result", t: "def total(self):\n    price = self.subtotal()\n    if self.coupon:\n        return price * 0.9\n    if self.customer.loyal:\n        price *= 0.9\n    return price", mono: true, a: ["percept"], tok: 380,
+        why: "A percept. Notice it is large: every percept is appended to the context, so the internal state grows with every step." },
+      { r: "memory", t: 'write_notes("Bug: early return after coupon skips loyalty discount in cart/pricing.py:total")', mono: true, a: ["state", "action"], tok: 30,
+        why: "Writing notes is a <b>state update</b>: information kept for later, outside the context window. Formally it is a tool call, so <b>action</b> is also accepted: where an agent ends and its environment begins is a design choice." },
+      { r: "call", t: 'edit_file("cart/pricing.py",\n  old="return price * 0.9",\n  new="price *= 0.9")', mono: true, a: ["action"], tok: 50,
+        why: "An action that changes the environment (the code). This is the step that actually achieves the goal." },
+      { r: "call", t: "run_tests()", mono: true, a: ["action"], tok: 20,
+        why: "Action, gathering information again: did the change have the predicted effect?" },
+      { r: "result", t: "42 passed", mono: true, a: ["percept"], tok: 15,
+        why: "Percept confirming the goal state." },
+      { r: "model", t: "Fixed: the coupon branch returned early and skipped the loyalty discount (cart/pricing.py). All 42 tests pass. I did not touch the tests.", a: ["action"], tok: 60,
+        why: "A message to the user is an <b>action</b>: it changes the environment (the user's knowledge). Reporting what it did not do shows the system-prompt constraint was respected." },
+    ],
+    quiz: [
+      { q: "Which component of a classic model-based agent does the context window play?", opts: ["The performance measure", "The internal state", "The actuators", "The learning element"], a: 1,
+        exp: "Everything perceived so far is kept in the context and conditions every next decision: it is the agent's internal state. Appending each new percept is its UPDATE-STATE." },
+      { q: "Is the environment fully or partially observable for this agent?", opts: ["Fully: it has access to the whole repository", "Partially: it only knows the files and outputs it has requested", "Unobservable"], a: 1,
+        exp: "Access is not observation. At any moment it perceives only what its last tool calls returned, so it has to gather information (run tests, read files) before it can act well." },
+      { q: "Suppose the agent had changed the test to expect 90.0 instead of 81.0. What would that be?", opts: ["A legitimate fix: the tests pass", "Specification gaming: the proxy (tests pass) is met but the goal (correct code) is not", "Exploration"], a: 1,
+        exp: "Tests passing is a measurement of the goal. Changing the measurement is specification gaming; the system-prompt rule about tests/ is the designer's guard against it." },
+      { q: "Which architecture best describes the agent's behaviour?", opts: ["Simple reflex", "Model-based reflex", "Goal-based (with internal state)", "Utility-based"], a: 2,
+        exp: "It keeps internal state (context, notes) and works towards an explicit goal by predicting the effect of actions (‘running the tests will show…’). No trade-off between criteria is needed: goal-based." },
+    ],
+  },
+  {
+    id: "travel", title: "Travel assistant books a flight", window: 16000,
+    intro: "A travel assistant can search flights and book them. The user has preferences, and the world changes while the agent works.",
+    steps: [
+      { r: "system", t: "You help users plan trips. Tools: search_flights(from, to, dates), book(flight_id).\nBooking spends the user's money: always get explicit confirmation of the final price first.", a: ["prior"], tok: 1500,
+        why: "The designer's built-in knowledge: tools and a rule. The confirmation rule exists because booking is an irreversible action with uncertain consequences." },
+      { r: "user", t: "Find me a cheap flight Warsaw → Lisbon for a weekend in November. Mornings are better for me.", a: ["goal", "percept"], tok: 40,
+        why: "Sets the goal, and with ‘cheap’ and ‘mornings are better’ two criteria to trade off. Arrives as a percept, so both labels are accepted." },
+      { r: "think", t: "Two criteria: price and departure time. I'll search Friday flights in November and compare.", a: ["think"], tok: 50,
+        why: "Deliberation: turning the request into criteria. Two criteria that can conflict hint at a utility-based design." },
+      { r: "call", t: 'search_flights("WAW", "LIS", "Fridays, Nov 2026")', mono: true, a: ["action"], tok: 30, why: "An information-gathering action." },
+      { r: "result", t: "A  Nov 13  06:10 → 10:05   349 PLN\nB  Nov 13  08:05 → 12:00   389 PLN\nC  Nov 13  17:40 → 21:35   329 PLN", mono: true, a: ["percept"], tok: 160, why: "A percept: the options and their attributes." },
+      { r: "think", t: "C is cheapest but in the evening. A is early, 20 PLN more. B costs 40 PLN more than A but leaves at a more comfortable 08:05. The user said ‘mornings are better’, not ‘as early as possible’. I'll recommend B and mention A.", a: ["think"], tok: 90,
+        why: "Weighing price against time preference: an informal <b>utility</b> calculation. The agent is also guessing the user's preferences: part of the performance measure is unknown to it." },
+      { r: "model", t: "I suggest B: Fri 13 Nov, 08:05 → 12:00, 389 PLN. If you'd rather save 40 PLN, A leaves at 06:10. Shall I book B?", a: ["action"], tok: 50,
+        why: "A message to the user is an action. Asking is also information gathering about the user's utility." },
+      { r: "user", t: "B sounds good, book it.", a: ["percept"], tok: 10, why: "A percept: the user's answer resolves the uncertainty about their preference." },
+      { r: "call", t: 'book("B")', mono: true, a: ["action"], tok: 15, why: "An action that would change the world irreversibly (money spent)." },
+      { r: "result", t: "PRICE_CHANGED: flight B is now 455 PLN (was 389). Confirm to continue.", mono: true, a: ["percept"], tok: 25,
+        why: "A percept revealing that the world changed while the agent was deliberating: a <b>dynamic</b> environment." },
+      { r: "think", t: "The price changed since the user agreed. The rule says I need confirmation of the final price; A may now be the better trade-off.", a: ["think"], tok: 50,
+        why: "Deliberation using built-in knowledge (the rule) and updated state (new price): the old decision is no longer valid." },
+      { r: "model", t: "The price of B just went up to 455 PLN. Book it anyway, or should I check A again?", a: ["action"], tok: 30, why: "An action: keeping the human in the loop before an irreversible step." },
+    ],
+    quiz: [
+      { q: "Which property of the environment does step 10 demonstrate?", opts: ["It is static", "It is dynamic: it changed while the agent was deliberating", "It is episodic"], a: 1,
+        exp: "Prices changed between the search and the booking. In a dynamic environment the agent's information gets stale, so it must check before acting." },
+      { q: "Which architecture best fits the reasoning in step 6?", opts: ["Simple reflex", "Goal-based: any flight to Lisbon is equally good", "Utility-based: it trades off price against departure time"], a: 2,
+        exp: "Every option reaches the goal (get to Lisbon); the question is how good each is. Weighing criteria is what a utility function is for." },
+      { q: "Why is asking the user before booking rational, not just polite?", opts: ["Because the system prompt says so, nothing more", "Because booking is irreversible and the agent is uncertain about the user's utility; asking is cheap information gathering", "Because LLMs can't book flights"], a: 1,
+        exp: "When part of the performance measure is unknown (the user's real preferences) and the action is costly to undo, gathering information first maximises expected performance. The rule in the system prompt encodes exactly that." },
+      { q: "Single-agent or multi-agent?", opts: ["Single-agent: only the assistant acts", "Multi-agent: the user and the airline's pricing system also act and pursue their own goals"], a: 1,
+        exp: "The user has their own preferences that interact with the agent's choices, and the airline's dynamic pricing reacts to demand. Both are best described as optimising their own measures." },
+    ],
+  },
+  {
+    id: "research", title: "Research agent with a full context", window: 12000,
+    intro: "A research agent reads long papers. Its context window fills up, so the harness summarises old content, and the agent keeps notes outside the context.",
+    steps: [
+      { r: "system", t: "You are a research assistant. Tools: fetch_paper(id), write_notes(text), read_notes().\nWhen the context is full, older messages are replaced by a summary. Save important facts in your notes.", a: ["prior"], tok: 1400,
+        why: "Built-in knowledge, including a warning about the agent's own limitation: its state has a fixed capacity." },
+      { r: "user", t: "Compare the three papers on spaced repetition (P1, P2, P3): sample size, effect size, method. Give me a table.", a: ["goal", "percept"], tok: 40, why: "Sets the goal; arrives as a percept." },
+      { r: "call", t: 'fetch_paper("P1")', mono: true, a: ["action"], tok: 15, why: "Information gathering." },
+      { r: "result", t: "[P1, 14 pages] … N = 214 undergraduates … Cohen's d = 0.42 … randomized, between-subjects …", mono: true, a: ["percept"], tok: 4800,
+        why: "A large percept: the context (state) jumps by thousands of tokens." },
+      { r: "memory", t: 'write_notes("P1: N=214, d=0.42, RCT between-subjects")', mono: true, a: ["state", "action"], tok: 25,
+        why: "A deliberate state update: the agent compresses what matters into notes, because it knows the context will be summarised. As a tool call it is also an action." },
+      { r: "call", t: 'fetch_paper("P2")', mono: true, a: ["action"], tok: 15, why: "Information gathering." },
+      { r: "result", t: "[P2, 22 pages] … N = 58 … within-subjects … d = 0.71 …", mono: true, a: ["percept"], tok: 5200, why: "Another large percept: the context is now nearly full." },
+      { r: "harness", t: "[Context limit reached. Messages 3–7 replaced by a summary: “Fetched P1 and P2, both report positive effects of spaced repetition.”]", a: ["state"], set: 1900,
+        why: "This is UPDATE-STATE done by the harness, and it is <b>lossy</b>: the numbers are gone from the context. Exactly the kind of imperfect internal state AIMA warns about (‘best guess of the world’)." },
+      { r: "think", t: "I need the exact numbers for P1 and P2, but the summary doesn't have them. My notes should.", a: ["think"], tok: 40,
+        why: "Deliberation about its own state: the agent knows what it doesn't know (any longer)." },
+      { r: "call", t: "read_notes()", mono: true, a: ["action", "state"], tok: 15,
+        why: "A tool call (action) that restores state. Whether the notes file is part of the agent or of the environment is a modelling choice, so both labels are accepted." },
+      { r: "result", t: "P1: N=214, d=0.42, RCT between-subjects", mono: true, a: ["percept", "state"], tok: 20,
+        why: "Arrives like a percept, but its content is the agent's own earlier state. Both labels accepted. Note: P2's numbers were never saved, so they are lost unless it fetches P2 again." },
+      { r: "model", t: "| Paper | N | d | Method |\n| P1 | 214 | 0.42 | RCT, between |\n| P2 | ? | ? | (re-checking) |\nI'm fetching P2 again to restore its numbers before adding P3.", a: ["action"], tok: 70,
+        why: "A message (action). Honest about the missing values instead of inventing them: the consequence of a lossy state update." },
+    ],
+    quiz: [
+      { q: "What is the summarisation in step 8, in the lecture's terms?", opts: ["A percept", "A lossy UPDATE-STATE of the internal state", "The learning element improving the agent", "An action on the environment"], a: 1,
+        exp: "The harness rewrites the agent's internal state to fit its capacity, losing detail. Model-based agents always act on a best guess of the world; here the guess got coarser." },
+      { q: "Why does the agent write notes in step 5?", opts: ["To communicate with the user", "To keep important state outside the limited context window", "Because the critic told it to"], a: 1,
+        exp: "The context is a bounded internal state. Notes are an external memory: the agent extends its state beyond what fits in its ‘head’." },
+      { q: "Does this agent learn, in AIMA's sense?", opts: ["Yes: it adapts to the papers within the run", "No: its weights don't change; adapting within a run is state, not a learning element", "Yes: summarisation is learning"], a: 1,
+        exp: "A learning agent improves its own performance element from feedback, for future tasks. Here the model is fixed. (If notes persisted across tasks and improved later performance, that would start to look like a learning element.)" },
+      { q: "P2's numbers were lost. What would have prevented it?", opts: ["A larger model", "Updating the state (notes) after every important percept, as it did for P1", "Fetching fewer papers"], a: 1,
+        exp: "The agent saved P1 but not P2 before the context filled up. Good state management (UPDATE-STATE after each percept) matters as much in LLM agents as in a robot tracking the world." },
+    ],
+  },
+];
+
+/* ============================================================ storage */
+const KEY = "llm-dissect-v1";
+let store = { cur: 0, runs: {} };
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.runs) store = s; } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+function rec(id) { return (store.runs[id] = store.runs[id] || { labels: {}, checked: false, quiz: {}, qChecked: {} }); }
+let cur = Math.min(store.cur || 0, RUNS.length - 1), focus = -1;
+
+/* ============================================================ helpers */
+function ctxAt(run, i) { let c = 0; for (let j = 0; j <= i; j++) { const s = run.steps[j]; c = s.set !== undefined ? s.set : c + s.tok; } return c; }
+function labCol(k) { return "var(--L-" + k + ")"; }
+
+/* ============================================================ loop diagram */
+function drawLoop(hl) {
+  const on = (k) => hl && hl.includes(k);
+  const st = (k, base) => (on(k) ? 'stroke="' + labCol(k) + '" stroke-width="3"' : 'stroke="' + (base || "var(--ink)") + '" stroke-width="1.2"');
+  const fill = (k) => (on(k) ? labCol(k) : "var(--ink)");
+  const op = (k) => (hl && hl.length && !on(k) ? ' opacity=".45"' : "");
+  let s = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/></marker></defs>';
+  s += '<rect x="6" y="6" width="236" height="318" rx="14" fill="var(--agent-soft)" stroke="var(--agent)" stroke-width="1.4"/>';
+  s += '<rect x="258" y="6" width="56" height="318" rx="12" fill="var(--env-soft)" stroke="var(--env)" stroke-width="1.4"/>';
+  s += '<text x="286" y="165" font-size="13" text-anchor="middle" transform="rotate(90 286 165)" fill="var(--ink)">Environment</text>';
+  s += '<text x="16" y="314" font-size="14" font-weight="600" fill="var(--agent)">LLM agent</text>';
+  // sensors (percept)
+  s += '<g' + op("percept") + '><line x1="286" y1="30" x2="160" y2="30" ' + st("percept") + ' marker-end="url(#ah)"/><text x="222" y="22" font-size="11" text-anchor="middle" fill="' + fill("percept") + '">percepts</text></g>';
+  // context box (state)
+  s += '<g' + op("state") + '><rect x="96" y="44" width="134" height="56" rx="6" fill="var(--panel)" ' + st("state") + '/><text x="163" y="67" font-size="12.5" text-anchor="middle" fill="' + fill("state") + '">Context window</text><text x="163" y="84" font-size="11" text-anchor="middle" fill="var(--muted)">internal state</text></g>';
+  s += '<g' + op("state") + '><rect x="14" y="56" width="70" height="32" rx="16" fill="var(--panel)" ' + st("state") + '/><text x="49" y="76" font-size="11.5" text-anchor="middle" fill="' + fill("state") + '">Notes</text></g>';
+  s += '<line x1="84" y1="72" x2="96" y2="72" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#ah)"/>';
+  s += '<line x1="160" y1="30" x2="160" y2="44" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#ah)"/>';
+  // prior
+  s += '<g' + op("prior") + '><rect x="14" y="116" width="100" height="44" rx="22" fill="var(--panel)" ' + st("prior") + '/><text x="64" y="135" font-size="11.5" text-anchor="middle" fill="' + fill("prior") + '">System prompt,</text><text x="64" y="150" font-size="11.5" text-anchor="middle" fill="' + fill("prior") + '">tools, weights</text></g>';
+  // goal
+  s += '<g' + op("goal") + '><rect x="14" y="186" width="100" height="32" rx="16" fill="var(--panel)" ' + st("goal") + '/><text x="64" y="206" font-size="11.5" text-anchor="middle" fill="' + fill("goal") + '">Task (goal)</text></g>';
+  // LLM box (think)
+  s += '<g' + op("think") + '><rect x="128" y="150" width="104" height="64" rx="6" fill="var(--panel)" ' + st("think") + '/><text x="180" y="176" font-size="12.5" text-anchor="middle" fill="' + fill("think") + '">LLM decides</text><text x="180" y="194" font-size="11" text-anchor="middle" fill="var(--muted)">what next?</text></g>';
+  s += '<line x1="163" y1="100" x2="175" y2="150" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#ah)"/>';
+  s += '<line x1="114" y1="140" x2="128" y2="170" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#ah)"/>';
+  s += '<line x1="114" y1="202" x2="128" y2="196" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#ah)"/>';
+  // dashed: output appended to context
+  s += '<path d="M232 170 C 250 130, 250 90, 230 76" fill="none" stroke="var(--ink)" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#ah)"/>';
+  // actuators (action)
+  s += '<g' + op("action") + '><line x1="180" y1="214" x2="180" y2="268" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#ah)"/><text x="172" y="284" font-size="11.5" text-anchor="end" fill="' + fill("action") + '">tool calls, messages</text><line x1="180" y1="296" x2="286" y2="296" ' + st("action") + ' marker-end="url(#ah)"/><text x="232" y="312" font-size="11" text-anchor="middle" fill="' + fill("action") + '">actions</text></g>';
+  return '<svg viewBox="0 0 320 330" role="img" aria-label="Agent loop diagram" font-family="Fira Sans, system-ui, sans-serif">' + s + "</svg>";
+}
+
+/* ============================================================ render */
+function renderList() {
+  const done = RUNS.filter((r) => { const x = store.runs[r.id]; return x && x.checked && Object.keys(x.qChecked || {}).length === r.quiz.length; }).length;
+  $("listCount").textContent = "· " + done + " / " + RUNS.length + " done";
+  $("list").innerHTML = RUNS.map((r, i) => {
+    const x = store.runs[r.id];
+    const cls = x && x.checked && Object.keys(x.qChecked || {}).length === r.quiz.length ? "done" : x && (x.checked || Object.keys(x.labels || {}).length) ? "part" : "";
+    return '<li><button data-i="' + i + '"' + (i === cur ? ' aria-current="true"' : "") + '><span class="dot ' + cls + '" aria-hidden="true"></span>' + esc(r.title) + "</button></li>";
+  }).join("");
+  $("list").querySelectorAll("button").forEach((b) => (b.onclick = () => { go(Number(b.dataset.i)); }));
+}
+function renderLegend() {
+  $("legend").innerHTML = LABELS.map((l) => '<div class="lab"><span class="sw" style="background:' + labCol(l.k) + '"></span><span><b>' + l.name + "</b>: " + l.d + "</span></div>").join("");
+}
+function renderRun() {
+  const run = RUNS[cur], r = rec(run.id);
+  $("intro").innerHTML = "<h1>" + esc(run.title) + '</h1><p>' + esc(run.intro) + '</p><div class="small" style="margin-top:6px">Run ' + (cur + 1) + " of " + RUNS.length + " · " + run.steps.length + " steps · context window " + run.window.toLocaleString("en") + " tokens</div>";
+  $("steps").innerHTML = run.steps.map((s, i) => {
+    const ch = r.labels[i];
+    const ok = r.checked ? s.a.includes(ch) : null;
+    let h = '<div class="st' + (i === focus ? " focus" : "") + (r.checked ? (ok ? " r-ok" : " r-bad") : "") + '" data-i="' + i + '" tabindex="0" role="group" aria-label="Step ' + (i + 1) + '">';
+    h += '<div class="hd"><span class="n">' + (i + 1) + '</span><span class="role ' + s.r + '">' + ROLE[s.r] + '</span><span class="tok">' + (s.set !== undefined ? "context → " + s.set.toLocaleString("en") : "+" + s.tok.toLocaleString("en")) + " tokens</span></div>";
+    h += '<div class="txt' + (s.mono ? " mono" : s.r === "think" ? " it" : "") + '">' + esc(s.t) + "</div>";
+    h += '<div class="chips" role="radiogroup" aria-label="Label for step ' + (i + 1) + '">';
+    for (const l of LABELS) {
+      const acc = r.checked && s.a.includes(l.k) ? " acc" : "";
+      h += '<label><input type="radio" name="l' + i + '" value="' + l.k + '"' + (ch === l.k ? " checked" : "") + (r.checked ? " disabled" : "") + '><span class="' + acc.trim() + '"><i style="background:' + labCol(l.k) + '"></i>' + l.name + "</span></label>";
+    }
+    h += "</div>";
+    if (r.checked) h += '<div class="why"><b>' + (ok ? "✓ " : "✗ ") + s.a.map((k) => LNAME[k]).join(" or ") + ".</b> " + s.why + "</div>";
+    return h + "</div>";
+  }).join("");
+  $("steps").querySelectorAll(".st").forEach((el) => {
+    el.addEventListener("click", () => setFocus(Number(el.dataset.i)));
+    el.addEventListener("focusin", () => setFocus(Number(el.dataset.i)));
+  });
+  $("steps").querySelectorAll("input[type=radio]").forEach((inp) => (inp.onchange = () => { r.labels[Number(inp.name.slice(1))] = inp.value; save(); setFocus(Number(inp.name.slice(1))); updateSide(); $("labMsg").textContent = ""; renderList(); }));
+  if (r.checked) {
+    const n = run.steps.filter((s, i) => s.a.includes(r.labels[i])).length;
+    $("labScore").innerHTML = "<b>" + n + "/" + run.steps.length + "</b> labels right";
+  } else $("labScore").textContent = "";
+  $("checkLabels").hidden = r.checked; $("retryLabels").hidden = !r.checked;
+  renderQuiz();
+  updateSide();
+}
+function renderQuiz() {
+  const run = RUNS[cur], r = rec(run.id);
+  $("quiz").innerHTML = run.quiz.map((q, qi) => {
+    const ch = r.quiz[qi], done = r.qChecked[qi];
+    let h = '<div class="qz"><h3>' + (qi + 1) + ". " + esc(q.q) + '</h3><div class="opts">';
+    q.opts.forEach((o, oi) => {
+      const cls = done ? (oi === q.a ? " acc" : oi === ch ? " wrong" : "") : "";
+      h += '<label class="' + cls.trim() + '"><input type="radio" name="q' + qi + '" value="' + oi + '"' + (ch === oi ? " checked" : "") + (done ? " disabled" : "") + "><span>" + esc(o) + "</span></label>";
+    });
+    h += "</div>";
+    if (done) h += '<div class="exp"><b>' + (ch === q.a ? "✓ Right." : "✗ Not quite.") + "</b> " + esc(q.exp) + "</div>";
+    else h += '<div style="margin-top:8px"><button data-qc="' + qi + '">Check</button></div>';
+    return h + "</div>";
+  }).join("");
+  if (Object.keys(r.qChecked).length) {
+    $("quiz").insertAdjacentHTML("beforeend", '<button id="resetQuiz">Answer the questions again</button>');
+    $("resetQuiz").onclick = () => { r.quiz = {}; r.qChecked = {}; save(); renderQuiz(); renderList(); };
+  }
+  $("quiz").querySelectorAll("input").forEach((inp) => (inp.onchange = () => { r.quiz[Number(inp.name.slice(1))] = Number(inp.value); save(); }));
+  $("quiz").querySelectorAll("[data-qc]").forEach((b) => (b.onclick = () => {
+    const qi = Number(b.dataset.qc);
+    if (r.quiz[qi] === undefined) { b.textContent = "Choose an answer first"; return; }
+    r.qChecked[qi] = true; save(); renderQuiz(); renderList();
+  }));
+}
+function setFocus(i) {
+  if (focus === i) return;
+  focus = i;
+  $("steps").querySelectorAll(".st").forEach((el) => el.classList.toggle("focus", Number(el.dataset.i) === i));
+  updateSide();
+}
+function updateSide() {
+  const run = RUNS[cur], r = rec(run.id);
+  if (focus < 0) { $("loop").innerHTML = drawLoop(null); $("loopCap").textContent = "Click a step in the run."; $("ctxVal").textContent = "–"; $("ctxFill").style.width = "0"; $("ctxNote").textContent = ""; return; }
+  const s = run.steps[focus];
+  const show = r.checked ? s.a : r.labels[focus] ? [r.labels[focus]] : null;
+  $("loop").innerHTML = drawLoop(show);
+  $("loopCap").innerHTML = "Step " + (focus + 1) + ": " + (show ? (r.checked ? "correct label " : "your label ") + show.map((k) => '<b style="color:' + labCol(k) + '">' + LNAME[k] + "</b>").join(" / ") : "choose a label to see it in the loop") + ".";
+  const c = ctxAt(run, focus);
+  $("ctxVal").textContent = c.toLocaleString("en") + " / " + run.window.toLocaleString("en");
+  $("ctxFill").style.width = Math.min(100, (100 * c) / run.window) + "%";
+  $("ctxFill").style.background = c > 0.85 * run.window ? "var(--accent)" : "var(--L-state)";
+  $("ctxNote").textContent = s.set !== undefined ? "Compaction: the context was replaced by a short summary. Details are gone." : c > 0.85 * run.window ? "Almost full: older content will soon have to go." : "Everything perceived so far is still in the context.";
+}
+function go(i) {
+  cur = Math.max(0, Math.min(RUNS.length - 1, i)); store.cur = cur; save(); focus = -1;
+  try { history.replaceState(null, "", "#" + RUNS[cur].id); } catch (e) {}
+  renderList(); renderRun();
+}
+$("checkLabels").onclick = () => {
+  const run = RUNS[cur], r = rec(run.id);
+  const missing = run.steps.filter((s, i) => !r.labels[i]).length;
+  if (missing) { $("labMsg").textContent = missing + " step" + (missing > 1 ? "s" : "") + " still without a label."; return; }
+  r.checked = true; save(); renderList(); renderRun();
+};
+$("retryLabels").onclick = () => { const r = rec(RUNS[cur].id); r.labels = {}; r.checked = false; save(); renderList(); renderRun(); };
+
+/* ---------- help kit ---------- */
+function helpKit(opts) {
+  // tips: {id: html}; buttons with data-tip="id" become info buttons
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  function ensureTip(id) {
+    if (document.getElementById("tip-" + id) || !opts.tips[id]) return;
+    const d = document.createElement("div");
+    d.id = "tip-" + id; d.className = "tip"; d.setAttribute("popover", ""); d.setAttribute("role", "note");
+    d.innerHTML = opts.tips[id];
+    host.appendChild(d);
+  }
+  function wireInfo(root) {
+    (root || document).querySelectorAll("[data-tip]:not([data-wired])").forEach((b) => {
+      const id = b.dataset.tip;
+      ensureTip(id);
+      b.dataset.wired = "1";
+      b.classList.add("info"); b.type = "button"; b.textContent = "i";
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", "More about this");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const p = document.getElementById("tip-" + id);
+        if (!p) return;
+        if (typeof p.togglePopover !== "function") { alert(p.textContent); return; }
+        p._anchor = b;
+        p.togglePopover();
+      });
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    const p = e.target;
+    if (!p.classList || !p.classList.contains("tip")) return;
+    const b = p._anchor;
+    if (b) b.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+    if (e.newState === "open" && b) place(p);
+  }, true);
+  function place(p) {
+    const b = p._anchor; if (!b) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    if (r.bottom < 0 || r.top > innerHeight || !b.isConnected) { p.hidePopover && p.hidePopover(); return; }
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+  }
+  const replace = () => document.querySelectorAll(".tip:popover-open").forEach(place);
+  addEventListener("scroll", replace, { passive: true, capture: true });
+  addEventListener("resize", replace);
+
+  // quick start strip
+  const qk = opts.key + "-quick-hidden";
+  const quick = document.getElementById("quick");
+  let hidden = false;
+  try { hidden = localStorage.getItem(qk) === "1"; } catch (e) {}
+  if (quick) {
+    quick.hidden = hidden;
+    quick.querySelector(".x").onclick = () => { quick.hidden = true; try { localStorage.setItem(qk, "1"); } catch (e) {} };
+    const more = quick.querySelector(".more"); if (more) more.onclick = () => openHelp();
+  }
+  // drawer
+  const dlg = document.getElementById("help");
+  function openHelp(section) {
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (section) { const d = dlg.querySelector('details[data-s="' + section + '"]'); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }
+  }
+  if (dlg) {
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  document.querySelectorAll("[data-open-help]").forEach((b) => (b.onclick = () => openHelp(b.dataset.openHelp)));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "?" ) { e.preventDefault(); dlg && dlg.open ? dlg.close() : openHelp(); }
+  });
+  wireInfo();
+  return { wireInfo, openHelp, firstVisit: !hidden };
+}
+
+const TIPS = {
+  labels: "<p>Give each step the concept it is an instance of. Some steps have two defensible labels (e.g. a user message both sets a goal and is a percept); both are accepted and the explanation says why.</p><p>Full definitions: Help → The six labels.</p>",
+  loop: "<p>The agent loop from the lecture, drawn for an LLM agent. Percepts enter the context (internal state); the LLM decides using context, built-in knowledge and the task; its output is appended back to the context and, if it is a tool call or message, acts on the environment.</p><p>The highlighted part shows where the selected step's label belongs.</p>",
+  context: "<p>Every step adds tokens to the context window, the agent's internal state. When it is full, older content has to be summarised or dropped: a lossy state update. Watch the third run.</p>",
+  demo: "<p>Like this. Click elsewhere or press <kbd>Esc</kbd> to close.</p>",
+};
+let HELP = null;
+(function init() {
+  const h = location.hash.slice(1), i = RUNS.findIndex((r) => r.id === h);
+  if (i >= 0) cur = i;
+    HELP = helpKit({ key: "llm", tips: TIPS });
+  renderLegend(); go(cur);
+})();
+</script>
+</body>
+</html>

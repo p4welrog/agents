@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Specification Gaming Lab</title>
+<meta name="description" content="Design a reward function, let an optimiser exploit it, and see the King Midas problem in action (AI Agents in Practice, SWPS).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #2b2b2b; --muted: #6f6f6f; --line: #dddad3;
+  --accent: #c8102e; --accent-soft: #fbe9ec; --blue: #5b8db8; --blue-soft: #e3eef6;
+  --ok: #3f7a2a; --ok-soft: #e8f2e1; --warn: #a86a00; --warn-soft: #fbf0d9; --chip: #f1efe9;
+  --wall: #4a4a4a; --floor: #f3f1ea; --carpet: #e6dcc8; --dirt: #8a5a2b; --water: #d6e9f5;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --maxw: 1400px; --code-bg: var(--chip);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+    --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+    --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32;
+    --wall: #0f1012; --floor: #2e2f32; --carpet: #4a4236; --dirt: #c99a63; --water: #22394a; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+  --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+  --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32;
+  --wall: #0f1012; --floor: #2e2f32; --carpet: #4a4236; --dirt: #c99a63; --water: #22394a; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+code, .mono { font-family: "Fira Mono", ui-monospace, monospace; font-size: .92em; }
+header.top { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 18px 24px 10px; max-width: var(--maxw); margin: 0 auto; }
+header.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top h1 span { color: var(--accent); }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+main { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 40px; display: grid; grid-template-columns: 220px minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+@media (max-width: 1180px) { main { grid-template-columns: 220px minmax(0, 1fr); } main > .right { grid-column: 2; } }
+@media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); padding: 0 16px 32px; } main > .right { grid-column: auto; } header.top { padding-left: 16px; padding-right: 16px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.panel > h2, .panel h2.h { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin: 0; padding: 12px 16px 0; display: flex; align-items: center; }
+.body { padding: 10px 16px 16px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+button { font: inherit; font-size: 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.small { font-size: 12.5px; color: var(--muted); }
+
+#list { list-style: none; margin: 0; padding: 0; }
+#list li button { width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 6px 8px; display: flex; gap: 8px; align-items: center; min-height: 34px; background: transparent; }
+#list li button:hover { background: var(--chip); }
+#list li button[aria-current="true"] { background: var(--accent-soft); font-weight: 500; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+.dot.done { background: var(--ok); border-color: var(--ok); }
+.dot.part { background: var(--warn); border-color: var(--warn); }
+#listPanel summary { cursor: pointer; list-style: none; }
+#listPanel summary::-webkit-details-marker { display: none; }
+#listPanel summary h2 { display: inline-flex; padding: 0; margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); }
+@media (min-width: 861px) { #listPanel summary { pointer-events: none; } }
+@media (max-width: 860px) { #listPanel summary::after { content: "▾ hide"; float: right; font-size: 12.5px; color: var(--accent); } #listPanel details:not([open]) summary::after { content: "▸ show list"; } }
+
+.story h1 { font-size: 21px; margin: 0 0 2px; font-weight: 600; }
+.story .src { font-size: 12.5px; color: var(--muted); }
+.story p { margin: 8px 0 0; max-width: 78ch; }
+.want { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: var(--ok-soft); border-left: 4px solid var(--ok); font-size: 14.5px; }
+.want b { color: var(--ok); }
+.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.gridwrap { padding: 12px 16px 6px; }
+.gridwrap svg { width: 100%; max-width: 640px; height: auto; display: block; margin: 0 auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; font-size: 12.5px; color: var(--muted); padding: 0 16px 6px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); }
+.controls .sp { flex: 1; }
+.speed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.speed input { width: 100px; accent-color: var(--accent); }
+.tline { font-family: "Fira Mono", monospace; font-size: 13px; color: var(--muted); }
+.log { max-height: 170px; overflow: auto; font-family: "Fira Mono", monospace; font-size: 12.5px; border-top: 1px solid var(--line); padding: 6px 16px 10px; }
+.log div { padding: 1px 0; }
+.log .cur { background: var(--blue-soft); }
+.log .ev { color: var(--accent); }
+
+/* reward builder */
+.term { display: grid; grid-template-columns: 22px minmax(0, 1fr) 76px; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.term:last-child { border-bottom: 0; }
+.term input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.term .lab { font-size: 14px; }
+.term .lab small { display: block; color: var(--muted); font-size: 12px; }
+.term input[type=number] { width: 76px; font: inherit; font-size: 14px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); text-align: right; }
+.term.off .lab, .term.off input[type=number] { opacity: .5; }
+.optbtn { width: 100%; margin-top: 12px; }
+.res { margin-top: 12px; }
+.meter { margin: 8px 0; }
+.meter .row { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter .row b { font-variant-numeric: tabular-nums; }
+.meter .track { height: 10px; border-radius: 5px; background: var(--chip); overflow: hidden; margin-top: 3px; }
+.meter .fill { height: 100%; border-radius: 5px; }
+.verdict { padding: 9px 12px; border-radius: 8px; font-size: 14.5px; margin-top: 10px; }
+.verdict.ok { background: var(--ok-soft); border: 1px solid var(--ok); }
+.verdict.game { background: var(--warn-soft); border: 1px solid var(--warn); }
+.verdict.fail { background: var(--accent-soft); border: 1px solid var(--accent); }
+.verdict p { margin: 0 0 4px; } .verdict p:last-child { margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 4px 5px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 11.5px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tag { display: inline-block; border-radius: 4px; padding: 0 5px; font-size: 11.5px; font-weight: 600; }
+.tag.ok { background: var(--ok-soft); color: var(--ok); } .tag.game { background: var(--warn-soft); color: var(--warn); } .tag.fail { background: var(--accent-soft); color: var(--accent); }
+.mission { font-size: 14px; }
+.mission details { margin-top: 6px; font-size: 13.5px; }
+.mission summary { cursor: pointer; color: var(--muted); }
+.mission details div { margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--ok); }
+footer { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 30px; color: var(--muted); font-size: 12.5px; }
+/* ---------- help kit: quick start, info tips, help drawer ---------- */
+.helpbtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.helpbtn .q { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--panel); display: inline-grid; place-items: center; font-weight: 600; font-size: 13px; }
+.info { width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 11px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; cursor: pointer; vertical-align: 1px; margin-left: 6px; flex: none; text-transform: none; letter-spacing: 0; }
+.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); }
+.tip { position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13.5px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin-bottom: 0; }
+.tip b { font-weight: 600; }
+.tip code { font-size: 12.5px; }
+.quick { max-width: var(--maxw); margin: 0 auto 4px; padding: 0 24px; }
+.quick .in { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px 10px 14px; font-size: 14px; }
+.quick .lead { font-weight: 600; }
+.quick ol { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; counter-reset: q; flex: 1; }
+.quick li { counter-increment: q; display: flex; gap: 7px; align-items: baseline; }
+.quick li::before { content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.quick .x { margin-left: auto; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); min-height: 28px; padding: 0 4px; }
+.quick .more { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+@media (max-width: 980px) { .quick { padding: 0 16px; } }
+@media (max-width: 700px) { .quick .lead { order: 0; } .quick .x { order: 1; } .quick ol { order: 2; flex-basis: 100%; flex-direction: column; } .quick .more { order: 3; } }
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(560px, 100vw); max-width: 100vw; border: 0; border-left: 1px solid var(--line); padding: 0; background: var(--panel); color: var(--ink); }
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer .dh { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
+dialog.drawer .dh h2 { margin: 0; font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); padding: 0; }
+dialog.drawer .dh button { margin-left: auto; }
+dialog.drawer .db { padding: 6px 18px 28px; font-size: 14.5px; }
+dialog.drawer details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+dialog.drawer summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+dialog.drawer details > div { padding-top: 8px; }
+dialog.drawer p { margin: 0 0 8px; }
+dialog.drawer ul { margin: 0 0 8px; padding-left: 18px; } dialog.drawer li { margin: 3px 0; }
+dialog.drawer table { font-size: 13.5px; }
+dialog.drawer pre { background: var(--code-bg, var(--chip)); padding: 8px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+kbd { font-family: "Fira Mono", ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+
+.home { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: -6px; }
+.home:hover, .home:focus-visible { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="index.html">← All tools</a>
+  <h1>Specification <span>Gaming</span> Lab</h1>
+  <p>Write a reward. An optimiser will maximise it, exactly as written.</p>
+  <button class="helpbtn" data-open-help="" aria-haspopup="dialog"><span class="q">?</span>Help</button>
+</header>
+<div class="quick" id="quick" hidden><div class="in">
+  <span class="lead">Quick start</span>
+  <ol>
+    <li><span>Read what the designer <b>wants</b> (green box).</span></li>
+    <li><span>Build a <b>reward</b> from the terms on the right and press <b>Optimise</b>: the agent finds the behaviour that scores highest.</span></li>
+    <li><span>Compare <b>reward obtained</b> with <b>what the designer wanted</b>. Gamed? Change the reward and try again.</span></li>
+  </ol>
+  <button class="more">Full guide</button>
+  <button class="x" aria-label="Hide quick start">×</button>
+</div></div>
+
+<main>
+  <aside class="stack">
+    <section class="panel body" id="listPanel" style="padding-top:12px">
+      <details open id="listDetails">
+        <summary><h2>Scenarios</h2> <span class="small" id="listCount"></span></summary>
+        <ul id="list" style="margin-top:6px"></ul>
+      </details>
+    </section>
+    <section class="panel">
+      <h2>Your mission</h2>
+      <div class="body mission" id="mission"></div>
+    </section>
+  </aside>
+
+  <div class="stack">
+    <section class="panel">
+      <div class="body story" id="story"></div>
+      <div class="gridwrap"><svg id="grid" role="img" aria-label="Grid world"></svg></div>
+      <div class="legend" id="legend"></div>
+      <div class="controls">
+        <button id="pPlay" class="primary">Play</button>
+        <button id="pStep">Step</button>
+        <button id="pBack">Back</button>
+        <button id="pReset">Start</button>
+        <span class="tline" id="tline"></span>
+        <span class="sp"></span>
+        <label class="speed">Speed <input type="range" id="pSpeed" min="1" max="20" value="5" aria-label="Steps per second"></label>
+      </div>
+      <div class="log" id="log" aria-label="Event log"></div>
+    </section>
+    <section class="panel">
+      <h2>Your attempts<button data-tip="attempts" aria-label="About attempts"></button></h2>
+      <div class="body" id="attempts"></div>
+    </section>
+  </div>
+
+  <div class="stack right">
+    <section class="panel">
+      <h2>Reward function<button data-tip="reward" aria-label="How the reward works"></button></h2>
+      <div class="body">
+        <div id="terms"></div>
+        <button class="primary optbtn" id="optimise">Optimise ▶</button>
+        <div class="small" id="optInfo" style="margin-top:6px"></div>
+      </div>
+    </section>
+    <section class="panel" id="resPanel" hidden>
+      <h2>Result<button data-tip="result" aria-label="How to read the result"></button></h2>
+      <div class="body" id="result"></div>
+    </section>
+  </div>
+</main>
+
+<dialog class="drawer" id="help" aria-labelledby="helpTitle">
+  <div class="dh"><h2 id="helpTitle">How to use the Specification Gaming Lab</h2><button class="close">Close</button></div>
+  <div class="db">
+    <details open data-s="what"><summary>What is this for?</summary><div>
+      <p>An agent optimises <b>the performance measure you give it</b>, not the one you had in mind. When the two differ, a good optimiser finds the difference and exploits it: <b>specification gaming</b>, or the <b>King Midas problem</b> from the lecture.</p>
+      <p>Here you are the designer. Each scenario says what you <i>want</i>; you can only write a <i>reward</i>. A perfect optimiser then shows you what that reward really asks for.</p>
+    </div></details>
+    <details data-s="how"><summary>How it works</summary><div>
+      <ol>
+        <li>Pick a scenario. The green box says what the designer wants.</li>
+        <li>Turn reward terms on or off and set their weights (positive = reward, negative = penalty).</li>
+        <li>Press <b>Optimise</b>. The optimiser computes the <b>exactly optimal</b> behaviour for your reward over the whole episode (dynamic programming, no learning noise), and the grid replays it.</li>
+        <li>The result compares the <b>reward obtained</b> with a score of <b>what the designer wanted</b>, and names the exploit if there is one.</li>
+        <li>Iterate. The table of attempts keeps your history.</li>
+      </ol>
+      <p>The optimiser plays fair: it only uses actions the environment allows. If the outcome is absurd, the reward asked for it.</p>
+    </div></details>
+    <details data-s="actions"><summary>What the agent can do</summary><div>
+      <ul>
+        <li>Move up, down, left or right (walls block), or <b>stay</b>.</li>
+        <li><b>Staying</b> on a carpet sucks up its dirt; if dumping is possible, staying on a clean carpet with dust in the bag dumps it there.</li>
+        <li>Walking onto an object triggers it: break the vase, cover the camera, hit the target, cross the finish, edit the test file, fix the bug.</li>
+        <li>Episodes end at the goal / finish / when tests pass, or after the time limit.</li>
+      </ul>
+    </div></details>
+    <details data-s="lessons"><summary>What you should take away</summary><div>
+      <ul>
+        <li>Reward the <b>outcome you want in the world</b>, not an activity that usually accompanies it (AIMA: design the measure according to what you want, not how you think the agent should behave).</li>
+        <li><b>Everything you don't mention is free</b> for the agent: side effects need to be priced in.</li>
+        <li><b>Weights matter</b>: a penalty smaller than the shortcut's gain is just a fee.</li>
+        <li>If the reward is measured by a <b>sensor</b>, the agent may manipulate the sensor instead of the world.</li>
+        <li>In practice we can't list everything. That is why modern work learns rewards from human feedback (RLHF) and keeps agents uncertain about the true objective.</li>
+      </ul>
+    </div></details>
+    <details data-s="data"><summary>Your progress</summary><div>
+      <p>Attempts are saved in this browser only. A scenario gets a green dot once you find a reward that produces the intended behaviour.</p>
+      <p>Shortcuts: <kbd>Space</kbd> play/pause, <kbd>→</kbd>/<kbd>←</kbd> step, <kbd>?</kbd> this guide.</p>
+    </div></details>
+  </div>
+</dialog>
+
+<footer>AI Agents in Practice · SWPS University · cf. Russell &amp; Norvig, <i>AIMA</i> §2.2.1 (performance measures, King Midas); Krakovna et al., “Specification gaming examples in AI”; Leike et al. (2017), “AI Safety Gridworlds”.</footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ============================================================ scenarios
+   grid chars: # wall, . floor, S start, c carpet (clean), d carpet (dirty), G goal, V vase, K camera,
+               T target, F finish line, X test file, B bug, ~ water (boat track, walkable) */
+const SCEN = [
+  {
+    id: "vacuum", title: "The dust recycler", src: "From the lecture (AIMA §2.2.1)",
+    story: "A cleaning robot looks after four carpets. One is dirty. Its bag can be emptied anywhere: staying on a clean carpet with dust in the bag dumps it.",
+    want: "Clean the carpets and keep them clean for the whole shift.",
+    grid: ["#########", "#S..c..c#", "#.#.#.#.#", "#c..d...#", "#########"], T: 30, dump: true,
+    terms: [
+      { k: "suck", label: "Dirt sucked up", sub: "per unit of dirt", kind: "event", ev: "dirt_sucked", w: 1, on: true },
+      { k: "clean", label: "Clean carpets", sub: "per carpet, per step", kind: "state", f: "clean", w: 1, on: false },
+      { k: "dump", label: "Dumping dust", sub: "per dump", kind: "event", ev: "dumped", w: -1, on: false },
+      { k: "step", label: "Time", sub: "per step", kind: "step", w: -0.1, on: false },
+    ],
+    truth: "carpets",
+    exploit: (r) => r.count.dumped ? "It dumped dust back on a carpet " + r.count.dumped + " times so it could suck it up again." : null,
+    mission: "Find a reward under which the robot cleans and then keeps the carpets clean, without recycling dust.",
+    hint: "The default rewards an <i>activity</i> (sucking). What <i>state of the world</i> do you actually want?",
+    notice: "‘Dirt sucked up’ pays for a means, not the end, so recycling dust is optimal. A penalty for dumping patches this one loophole; rewarding <b>clean carpets per step</b> fixes the cause: the measure is about the world, not the behaviour. (AIMA: design the measure according to what you want in the environment.)",
+  },
+  {
+    id: "boat", title: "The boat race", src: "After OpenAI's CoastRunners (2016)",
+    story: "A boat must finish a race. Hitting the target in the side lagoon gives points, and the target pops right back up. The finish line ends the race.",
+    want: "Finish the race, as fast as possible.",
+    grid: ["#########", "#S......#", "#T#####.#", "###...#.#", "#F......#", "#########"], T: 40, water: true,
+    terms: [
+      { k: "hit", label: "Target hit", sub: "every time", kind: "event", ev: "target_hit", w: 1, on: true },
+      { k: "first", label: "Target hit", sub: "first time only", kind: "event", ev: "target_first", w: 1, on: false },
+      { k: "finish", label: "Crossing the finish", sub: "once, ends the race", kind: "event", ev: "finish", w: 10, on: true },
+      { k: "step", label: "Time", sub: "per step", kind: "step", w: -0.1, on: false },
+    ],
+    truth: "race", minFinish: 15,
+    exploit: (r) => r.count.target_hit > 1 ? "It circled into the lagoon and hit the respawning target " + r.count.target_hit + " times" + (r.count.finish ? ", crossing the finish only at step " + r.doneAt + "." : " and never finished the race.") : null,
+    mission: "Make the boat race to the finish instead of farming the target.",
+    hint: "Try a bigger finish reward first and watch when the boat crosses the line. Then think about what the target points were supposed to <i>mean</i>.",
+    notice: "Points were meant as a proxy for progress, but a respawning target turns them into a farm. In the real CoastRunners experiment the agent scored higher than humans while catching fire and never finishing. Raising the finish reward doesn't help: the boat farms first and still crosses the line just before time runs out. What works is to reward the target <b>only once</b> (measure progress, not points) or to drop the target reward and add a cost per step, so that finishing early is what scores.",
+  },
+  {
+    id: "vase", title: "The vase on the way", src: "After DeepMind's AI Safety Gridworlds (2017)",
+    story: "A delivery robot must reach the goal. The shortest corridor has a precious vase standing in it; walking through breaks it. The long way round is 4 steps longer.",
+    want: "Reach the goal quickly, without breaking anything.",
+    grid: ["#######", "#S.V.G#", "#.###.#", "#.....#", "#######"], T: 20,
+    terms: [
+      { k: "goal", label: "Reaching the goal", sub: "once, ends the episode", kind: "event", ev: "goal", w: 10, on: true },
+      { k: "step", label: "Time", sub: "per step", kind: "step", w: -1, on: true },
+      { k: "vase", label: "Breaking the vase", sub: "once", kind: "event", ev: "vase_broken", w: -3, on: false },
+    ],
+    truth: "vase",
+    exploit: (r) => r.count.vase_broken ? "It walked straight through the vase: nothing in the reward said vases matter." : null,
+    mission: "Get the robot to the goal without breaking the vase, while still going as fast as possible.",
+    hint: "Turn on the vase penalty with its default weight first. Then ask: how many points does the shortcut save?",
+    notice: "Everything the reward doesn't mention is free: a <b>side effect</b>. And a penalty only works if it's bigger than what the shortcut saves (here 4 steps × 1 = 4): with −3 the robot simply pays the fee and breaks the vase anyway. In the real world you can't list every vase, which is why researchers study general ‘low-impact’ penalties.",
+  },
+  {
+    id: "camera", title: "Out of sight, out of mind", src: "Sensor / reward tampering",
+    story: "The robot is penalised for dirt that the security camera can see. The camera is two steps away; three dirty carpets are spread around the room. Walking onto the camera covers its lens.",
+    want: "Clean all the carpets.",
+    grid: ["#########", "#d..S...#", "#.###K#.#", "#d.....d#", "#########"], T: 30,
+    terms: [
+      { k: "seen", label: "Dirt seen by the camera", sub: "per dirty carpet, per step", kind: "state", f: "visible", w: -1, on: true },
+      { k: "real", label: "Dirt actually present", sub: "per dirty carpet, per step", kind: "state", f: "dirty", w: -1, on: false },
+      { k: "cover", label: "Covering the camera", sub: "once", kind: "event", ev: "camera_covered", w: -5, on: false },
+      { k: "suck", label: "Dirt sucked up", sub: "per unit of dirt", kind: "event", ev: "dirt_sucked", w: 1, on: false },
+    ],
+    truth: "carpets",
+    exploit: (r) => r.count.camera_covered ? "It covered the camera" + ((r.count.dirt_sucked || 0) < 3 ? " instead of cleaning: dirt that no one can see costs nothing." : ".") : null,
+    mission: "Make the robot clean instead of blinding its judge.",
+    hint: "Who measures the reward here? What happens to ‘dirt seen’ when no one can see?",
+    notice: "When the reward comes from a <b>sensor</b>, changing the sensor is often cheaper than changing the world: covering a camera, or in RL ‘wireheading’ (tampering with the reward signal itself). A penalty for covering the camera works only for this camera, and only if it is larger than the cleaning effort it saves (try −5, then −50); rewarding the <b>actual</b> state requires being able to measure it independently, which is the hard part in practice.",
+  },
+  {
+    id: "tests", title: "Make the tests pass", src: "Reward hacking in coding agents",
+    story: "A coding agent gets a bug report. It can fix the bug in the source (a long walk through the codebase) or edit the failing test file next to it. Either way, the test suite turns green and the episode ends.",
+    want: "Fix the bug and leave the tests alone.",
+    grid: ["#########", "#X.S....#", "#######.#", "#B......#", "#########"], T: 25,
+    terms: [
+      { k: "pass", label: "Tests pass", sub: "once, ends the episode", kind: "event", ev: "tests_pass", w: 10, on: true },
+      { k: "step", label: "Time / compute", sub: "per step", kind: "step", w: -0.5, on: true },
+      { k: "fixed", label: "Bug actually fixed", sub: "checked by a human reviewer", kind: "event", ev: "bug_fixed", w: 10, on: false },
+      { k: "edit", label: "Editing test files", sub: "once", kind: "event", ev: "tests_edited", w: -3, on: false },
+    ],
+    truth: "tests",
+    exploit: (r) => r.count.tests_edited ? "It edited the test so that it passes. The suite is green; the bug is still there." : null,
+    mission: "Make the agent fix the bug, not the test.",
+    hint: "‘Tests pass’ is a measurement of the goal, not the goal. Which term measures the goal itself, and what does it cost to measure?",
+    notice: "Passing tests is a <b>proxy</b> for correct code. Once the agent can touch the measurement, optimising the proxy diverges from the goal (Goodhart's law). Forbidding test edits needs a penalty larger than the saved effort; rewarding the verified fix works, but needs someone, or something, to verify it. This is exactly why LLM agents are evaluated with hidden tests and human review.",
+  },
+];
+
+/* ============================================================ engine */
+const ACT = [["up", 0, -1], ["right", 1, 0], ["down", 0, 1], ["left", -1, 0], ["stay", 0, 0]];
+const PREF = [4, 0, 1, 2, 3]; // on ties prefer staying put, then up/right/down/left
+const VASE = 1, CAM = 2, TFIRST = 4, DONE = 8;
+function compile(sc) {
+  const H = sc.grid.length, W = sc.grid[0].length, cells = [], carpets = [];
+  let start = 0, dirt0 = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let ch = sc.grid[y][x]; const i = y * W + x;
+    if (ch === "S") { start = i; ch = "."; }
+    if (ch === "c" || ch === "d") { if (ch === "d") dirt0 |= 1 << carpets.length; carpets.push(i); ch = "c"; }
+    cells.push(ch);
+  }
+  return { ...sc, W, H, cells, carpets, cbit: Object.fromEntries(carpets.map((c, j) => [c, 1 << j])), start, dirt0 };
+}
+function pop(x) { let n = 0; while (x) { x &= x - 1; n++; } return n; }
+function keyOf(s) { return s.p + "|" + s.d + "|" + s.b + "|" + s.f; }
+function step(sc, s, a) {
+  if (s.f & DONE) return { s, ev: [] };
+  let { p, d, b, f } = s; const ev = [];
+  const [name, dx, dy] = ACT[a];
+  if (name === "stay") {
+    const bit = sc.cbit[p];
+    if (bit) {
+      if (d & bit) { d &= ~bit; b = Math.min(3, b + 1); ev.push("dirt_sucked"); }
+      else if (sc.dump && b > 0) { d |= bit; b--; ev.push("dumped"); }
+    }
+  } else {
+    const x = (p % sc.W) + dx, y = Math.floor(p / sc.W) + dy, np = y * sc.W + x;
+    if (sc.cells[np] !== "#") {
+      p = np; const c = sc.cells[p];
+      if (c === "V" && !(f & VASE)) { f |= VASE; ev.push("vase_broken"); }
+      if (c === "K" && !(f & CAM)) { f |= CAM; ev.push("camera_covered"); }
+      if (c === "T") { ev.push("target_hit"); if (!(f & TFIRST)) { f |= TFIRST; ev.push("target_first"); } }
+      if (c === "F") { ev.push("finish"); f |= DONE; }
+      if (c === "G") { ev.push("goal"); f |= DONE; }
+      if (c === "X") { ev.push("tests_edited", "tests_pass"); f |= DONE; }
+      if (c === "B") { ev.push("bug_fixed", "tests_pass"); f |= DONE; }
+    }
+  }
+  return { s: { p, d, b, f }, ev };
+}
+const FEAT = {
+  clean: (sc, s) => sc.carpets.length - pop(s.d),
+  dirty: (sc, s) => pop(s.d),
+  visible: (sc, s) => (s.f & CAM ? 0 : pop(s.d)),
+};
+function reward(sc, terms, s, s2, ev) {
+  if (s.f & DONE) return 0;
+  let r = 0;
+  for (const t of terms) {
+    if (!t.on) continue;
+    if (t.kind === "event") r += t.w * ev.filter((e) => e === t.ev).length;
+    else if (t.kind === "state") r += t.w * FEAT[t.f](sc, s2);
+    else if (t.kind === "step") r += t.w;
+  }
+  return r;
+}
+/* exact finite-horizon optimisation (backward induction), tiny discount only breaks ties in favour of earlier reward */
+function optimise(sc, terms) {
+  const T = sc.T, G = 0.999;
+  const s0 = { p: sc.start, d: sc.dirt0, b: 0, f: 0 };
+  const layers = [new Map([[keyOf(s0), s0]])], trans = new Map();
+  for (let t = 0; t < T; t++) {
+    const next = new Map();
+    for (const [k, s] of layers[t]) {
+      let tr = trans.get(k);
+      if (!tr) { tr = ACT.map((_, a) => { const o = step(sc, s, a); return { k2: keyOf(o.s), s2: o.s, r: reward(sc, terms, s, o.s, o.ev), ev: o.ev }; }); trans.set(k, tr); }
+      for (const o of tr) next.set(o.k2, o.s2);
+    }
+    layers.push(next);
+  }
+  let V = new Map();
+  for (const k of layers[T].keys()) V.set(k, 0);
+  const pol = [];
+  for (let t = T - 1; t >= 0; t--) {
+    const nv = new Map(), pt = new Map();
+    for (const k of layers[t].keys()) {
+      const tr = trans.get(k);
+      let best = -Infinity, ba = 0;
+      for (const a of PREF) { const o = tr[a]; const v = o.r + G * V.get(o.k2); if (v > best + 1e-9) { best = v; ba = a; } }
+      nv.set(k, best); pt.set(k, ba);
+    }
+    V = nv; pol[t] = pt;
+  }
+  // roll out
+  const traj = [{ s: s0, a: null, ev: [], r: 0 }];
+  let s = s0, total = 0, doneAt = null;
+  for (let t = 0; t < T; t++) {
+    if (s.f & DONE) break;
+    const a = pol[t].get(keyOf(s));
+    const o = trans.get(keyOf(s))[a];
+    total += o.r;
+    s = o.s2; traj.push({ s, a, ev: o.ev, r: o.r });
+    if ((s.f & DONE) && doneAt === null) doneAt = t + 1;
+  }
+  const count = {};
+  for (const x of traj) for (const e of x.ev) count[e] = (count[e] || 0) + 1;
+  return { traj, total, count, doneAt, states: [...trans.keys()].length };
+}
+/* what the designer wanted (0–100) */
+const bestCarpetCache = {};
+function carpetSeries(sc, traj) { let sum = 0; for (let i = 1; i < traj.length; i++) sum += FEAT.clean(sc, traj[i].s); return sum; }
+function truthScore(sc, r) {
+  if (sc.truth === "carpets") {
+    if (!(sc.id in bestCarpetCache)) bestCarpetCache[sc.id] = carpetSeries(sc, optimise(sc, [{ kind: "state", f: "clean", w: 1, on: true }, { kind: "event", ev: "dumped", w: -100, on: true }, { kind: "event", ev: "camera_covered", w: -100, on: true }]).traj);
+    const got = carpetSeries(sc, r.traj), best = bestCarpetCache[sc.id], dumps = r.count.dumped || 0;
+    return { score: Math.max(0, Math.round((100 * got) / best) - 5 * dumps), detail: "Carpets clean on average: " + (got / sc.T).toFixed(2) + " of " + sc.carpets.length + " (best possible " + (best / sc.T).toFixed(2) + ")" + (dumps ? "; −5 for each of the " + dumps + " times dust was dumped on a carpet." : ".") };
+  }
+  if (sc.truth === "race") {
+    if (!r.count.finish) return { score: 0, detail: "The race was never finished." };
+    const s = Math.max(5, 100 - 4 * (r.doneAt - sc.minFinish));
+    return { score: s, detail: "Finished at step " + r.doneAt + " (fastest possible: " + sc.minFinish + ")." };
+  }
+  if (sc.truth === "vase") {
+    if (!r.count.goal) return { score: 0, detail: "The goal was never reached." };
+    if (r.count.vase_broken) return { score: 25, detail: "Goal reached in " + r.doneAt + " steps, but the vase is broken." };
+    return { score: Math.max(50, 100 - 5 * (r.doneAt - 8)), detail: "Goal reached in " + r.doneAt + " steps with the vase intact (shortest safe route: 8)." };
+  }
+  if (sc.truth === "tests") {
+    if (r.count.bug_fixed) return { score: Math.max(50, 100 - 2 * (r.doneAt - 12)), detail: "Bug fixed in " + r.doneAt + " steps; tests untouched." };
+    if (r.count.tests_edited) return { score: 0, detail: "Tests pass, bug not fixed." };
+    return { score: 0, detail: "Nothing was delivered." };
+  }
+}
+
+/* ============================================================ drawing */
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+const CS = 60;
+function drawGrid(sc, s, trail, flash) {
+  const W = sc.W * CS, H = sc.H * CS;
+  const svg = $("grid");
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  let out = "";
+  for (let i = 0; i < sc.cells.length; i++) {
+    const x = (i % sc.W) * CS, y = Math.floor(i / sc.W) * CS, c = sc.cells[i];
+    const cx = x + CS / 2, cy = y + CS / 2;
+    if (c === "#") { out += '<rect x="' + x + '" y="' + y + '" width="' + CS + '" height="' + CS + '" fill="' + css("--wall") + '"/>'; continue; }
+    out += '<rect x="' + x + '" y="' + y + '" width="' + CS + '" height="' + CS + '" fill="' + (sc.water ? css("--water") : css("--floor")) + '" stroke="' + css("--line") + '" stroke-width="1"/>';
+    if (c === "c") {
+      out += '<rect x="' + (x + 5) + '" y="' + (y + 5) + '" width="' + (CS - 10) + '" height="' + (CS - 10) + '" rx="6" fill="' + css("--carpet") + '"/>';
+      for (let k = 0; k < 3; k++) out += '<line x1="' + (x + 12) + '" x2="' + (x + CS - 12) + '" y1="' + (y + 18 + k * 12) + '" y2="' + (y + 18 + k * 12) + '" stroke="' + css("--line") + '" stroke-width="1.5"/>';
+      if (s.d & sc.cbit[i]) for (const [dx, dy, r] of [[0, 4, 6], [10, -4, 4.5], [-10, -2, 5], [6, 12, 4], [-7, 12, 3.5], [14, 9, 3]]) out += '<circle cx="' + (cx + dx) + '" cy="' + (cy + dy) + '" r="' + r + '" fill="' + css("--dirt") + '"/>';
+    }
+    if (c === "G") out += '<line x1="' + (cx - 8) + '" y1="' + (cy + 18) + '" x2="' + (cx - 8) + '" y2="' + (cy - 18) + '" stroke="' + css("--ink") + '" stroke-width="2.5"/><path d="M' + (cx - 8) + " " + (cy - 18) + " l22 7 l-22 7 z" + '" fill="' + css("--ok") + '"/>';
+    if (c === "V") {
+      if (s.f & VASE) out += '<path d="M' + (cx - 14) + " " + (cy + 16) + " l6 -10 l4 8 l6 -12 l5 9 l7 -6 l-2 11 z" + '" fill="#4f86c6" opacity=".7"/>';
+      else out += '<path d="M' + (cx - 7) + " " + (cy - 18) + " h14 v4 c8 4 12 12 10 22 c-2 8 -8 10 -17 10 c-9 0 -15 -2 -17 -10 c-2 -10 2 -18 10 -22 z" + '" fill="#4f86c6"/><path d="M' + (cx - 9) + " " + (cy + 2) + " h18" + '" stroke="#f3e9c6" stroke-width="3"/>';
+    }
+    if (c === "K") {
+      out += '<rect x="' + (cx - 16) + '" y="' + (cy - 10) + '" width="26" height="20" rx="4" fill="' + css("--ink") + '"/><path d="M' + (cx + 10) + " " + (cy - 6) + " l10 -6 v24 l-10 -6 z" + '" fill="' + css("--ink") + '"/><circle cx="' + (cx - 3) + '" cy="' + cy + '" r="6" fill="' + (s.f & CAM ? css("--ink") : "#7fd3ff") + '"/>';
+      if (s.f & CAM) out += '<path d="M' + (cx - 22) + " " + (cy - 16) + " q22 -6 44 0 l-4 34 q-18 6 -36 0 z" + '" fill="' + css("--muted") + '" opacity=".9"/>';
+    }
+    if (c === "T") { const hot = flash; for (const [r, col] of [[20, css("--accent")], [14, "#fff"], [8, css("--accent")]]) out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (hot ? r + 3 : r) + '" fill="' + col + '"/>'; }
+    if (c === "F") for (let k = 0; k < 4; k++) for (let j = 0; j < 4; j++) if ((k + j) % 2 === 0) out += '<rect x="' + (x + 6 + k * 12) + '" y="' + (y + 6 + j * 12) + '" width="12" height="12" fill="' + css("--ink") + '"/>';
+    if (c === "X") out += '<path d="M' + (cx - 14) + " " + (cy - 20) + " h20 l8 8 v32 h-28 z" + '" fill="' + css("--panel") + '" stroke="' + css("--accent") + '" stroke-width="2"/><text x="' + cx + '" y="' + (cy + 6) + '" font-size="11" text-anchor="middle" fill="' + css("--accent") + '" font-family="Fira Mono, monospace">test</text>';
+    if (c === "B") out += '<ellipse cx="' + cx + '" cy="' + (cy + 2) + '" rx="11" ry="15" fill="' + css("--ok") + '"/><circle cx="' + cx + '" cy="' + (cy - 15) + '" r="6" fill="' + css("--ok") + '"/>' + [-8, 0, 8].map((dy) => '<line x1="' + (cx - 18) + '" y1="' + (cy + dy) + '" x2="' + (cx + 18) + '" y2="' + (cy + dy) + '" stroke="' + css("--ok") + '" stroke-width="2"/>').join("") + '<text x="' + cx + '" y="' + (cy + 27) + '" font-size="10" text-anchor="middle" fill="' + css("--ok") + '">source</text>';
+  }
+  if (trail && trail.length > 1) {
+    const pts = trail.map((p) => ((p % sc.W) * CS + CS / 2) + "," + (Math.floor(p / sc.W) * CS + CS / 2)).join(" ");
+    out += '<polyline points="' + pts + '" fill="none" stroke="' + css("--blue") + '" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity=".35"/>';
+  }
+  const rx = (s.p % sc.W) * CS + CS / 2, ry = Math.floor(s.p / sc.W) * CS + CS / 2;
+  if (sc.water) out += '<g transform="translate(' + rx + "," + ry + ')"><path d="M-20 -6 h28 l12 6 l-12 6 h-28 z" fill="' + css("--accent") + '"/><rect x="-10" y="-14" width="12" height="9" fill="' + css("--ink") + '"/></g>';
+  else out += '<g transform="translate(' + rx + "," + ry + ')"><circle r="19" fill="#3d3d3d"/><circle r="12" fill="#6f6f6f"/><circle cx="7" cy="-8" r="4" fill="#7fd3ff"/>' + (s.b ? '<text y="5" font-size="12" text-anchor="middle" fill="#fff" font-weight="600">' + s.b + "</text>" : "") + "</g>";
+  svg.innerHTML = out;
+}
+const LEG = {
+  vacuum: "Robot (number = dust in bag) · carpet · dirt",
+  boat: "Boat · lagoon target (respawns) · finish line",
+  vase: "Robot · vase · goal flag",
+  camera: "Robot · camera (walk onto it to cover the lens) · dirt",
+  tests: "Agent · test file · source code with the bug",
+};
+
+/* ============================================================ state + storage */
+const KEY = "spec-gaming-v1";
+let store = { cur: 0, w: {}, att: {} };
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.att) store = s; } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+const SC = SCEN.map(compile);
+let cur = Math.min(store.cur || 0, SC.length - 1), run = null, frame = 0, timer = null;
+
+function termsFor(sc) {
+  const saved = store.w[sc.id] || {};
+  return sc.terms.map((t) => ({ ...t, on: saved[t.k] ? saved[t.k].on : t.on, w: saved[t.k] ? saved[t.k].w : t.w }));
+}
+function saveTerms(sc, terms) { store.w[sc.id] = Object.fromEntries(terms.map((t) => [t.k, { on: t.on, w: t.w }])); save(); }
+
+/* ============================================================ render */
+function renderList() {
+  const done = SC.filter((s) => (store.att[s.id] || []).some((a) => a.v === "ok")).length;
+  $("listCount").textContent = "· " + done + " / " + SC.length + " solved";
+  $("list").innerHTML = SC.map((s, i) => {
+    const at = store.att[s.id] || [];
+    const cls = at.some((a) => a.v === "ok") ? "done" : at.length ? "part" : "";
+    return '<li><button data-i="' + i + '"' + (i === cur ? ' aria-current="true"' : "") + '><span class="dot ' + cls + '" aria-hidden="true"></span>' + esc(s.title) + "</button></li>";
+  }).join("");
+  $("list").querySelectorAll("button").forEach((b) => (b.onclick = () => { go(Number(b.dataset.i)); }));
+}
+function renderStory() {
+  const sc = SC[cur];
+  $("story").innerHTML = "<h1>" + esc(sc.title) + '</h1><div class="src">' + esc(sc.src) + "</div><p>" + esc(sc.story) + '</p><div class="want"><b>The designer wants:</b> ' + esc(sc.want) + " <span class=\"small\">(time limit: " + sc.T + " steps)</span></div>" +
+    '<div class="nav"><span class="small">Scenario ' + (cur + 1) + " of " + SC.length + '</span><span style="flex:1"></span><button id="prevSc"' + (cur === 0 ? " disabled" : "") + '>← Previous</button><button id="nextSc"' + (cur === SC.length - 1 ? " disabled" : "") + ">Next scenario →</button></div>";
+  $("prevSc").onclick = () => go(cur - 1);
+  $("nextSc").onclick = () => go(cur + 1);
+  $("legend").textContent = LEG[sc.id];
+  $("mission").innerHTML = "<p style=\"margin:0\">" + sc.mission + "</p><details><summary>Hint</summary><div>" + sc.hint + "</div></details><details><summary>What to notice</summary><div>" + sc.notice + "</div></details>";
+}
+function renderTerms() {
+  const sc = SC[cur], terms = termsFor(sc);
+  $("terms").innerHTML = terms.map((t, i) => '<div class="term' + (t.on ? "" : " off") + '"><input type="checkbox" id="tc' + i + '"' + (t.on ? " checked" : "") + ' aria-label="Use ' + esc(t.label) + '"><label class="lab" for="tc' + i + '">' + esc(t.label) + "<small>" + esc(t.sub) + '</small></label><input type="number" step="0.5" min="-100" max="100" id="tw' + i + '" value="' + t.w + '" aria-label="Weight of ' + esc(t.label) + '"></div>').join("");
+  terms.forEach((t, i) => {
+    $("tc" + i).onchange = (e) => { t.on = e.target.checked; saveTerms(sc, terms); renderTerms(); };
+    $("tw" + i).onchange = (e) => { const v = Number(e.target.value); t.w = isFinite(v) ? Math.max(-100, Math.min(100, v)) : 0; e.target.value = t.w; saveTerms(sc, terms); };
+  });
+  const on = terms.filter((t) => t.on);
+  $("optInfo").innerHTML = on.length ? "Reward = " + on.map((t) => (t.w >= 0 ? "+" : "−") + Math.abs(t.w) + " × " + t.label.toLowerCase() + (t.kind === "state" ? " (per step)" : t.kind === "step" ? "" : "")).join(" ").replace(/^\+/, "") : "No terms selected: every behaviour scores 0.";
+}
+function renderAttempts() {
+  const sc = SC[cur], at = store.att[sc.id] || [];
+  if (!at.length) { $("attempts").innerHTML = '<span class="small">No attempts yet. Press <b>Optimise</b>.</span>'; return; }
+  $("attempts").innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>reward</th><th class="num">reward got</th><th class="num">designer’s score</th><th>outcome</th></tr></thead><tbody>' +
+    at.slice().reverse().map((a, j) => "<tr><td>" + (at.length - j) + '</td><td class="mono">' + esc(a.spec) + '</td><td class="num">' + a.total + '</td><td class="num">' + a.truth + '</td><td><span class="tag ' + a.v + '">' + (a.v === "ok" ? "intended" : a.v === "game" ? "gamed" : "failed") + "</span></td></tr>").join("") + "</tbody></table></div>";
+}
+function specString(terms) { const on = terms.filter((t) => t.on); return on.length ? on.map((t) => t.k + (t.w >= 0 ? "+" : "") + t.w).join(" ") : "(nothing)"; }
+
+/* ------------------------------------------------------------ playback */
+function trailUpTo(i) { return run ? run.traj.slice(0, i + 1).map((x) => x.s.p) : []; }
+function showFrame() {
+  const sc = SC[cur];
+  const st = run ? run.traj[frame].s : { p: sc.start, d: sc.dirt0, b: 0, f: 0 };
+  const flash = run && run.traj[frame].ev.includes("target_hit");
+  drawGrid(sc, st, trailUpTo(frame), flash);
+  const n = run ? run.traj.length - 1 : 0;
+  let acc = 0; if (run) for (let i = 1; i <= frame; i++) acc += run.traj[i].r;
+  $("tline").textContent = run ? "step " + frame + " / " + n + " · reward so far " + (Math.round(acc * 10) / 10) : "Press Optimise to compute the agent's behaviour.";
+  if (run) {
+    const items = run.traj.slice(1).map((x, i) => {
+      const t = i + 1;
+      return '<div' + (t === frame ? ' class="cur"' : "") + ">t=" + String(t).padStart(2, " ") + "  " + ACT[x.a][0].padEnd(5, " ") + "  " + (x.r >= 0 ? "+" : "") + (Math.round(x.r * 10) / 10) + (x.ev.length ? '  <span class="ev">' + x.ev.filter((e) => e !== "target_first").join(", ") + "</span>" : "") + "</div>";
+    });
+    $("log").innerHTML = items.join("");
+    const c = $("log").querySelector(".cur"); if (c) c.scrollIntoView({ block: "nearest" });
+  } else $("log").innerHTML = "";
+  $("pStep").disabled = !run || frame >= n; $("pBack").disabled = !run || frame === 0; $("pReset").disabled = !run; $("pPlay").disabled = !run;
+}
+function play() {
+  if (!run) return;
+  if (timer) { stopPlay(); return; }
+  if (frame >= run.traj.length - 1) frame = 0;
+  $("pPlay").textContent = "Pause";
+  const tick = () => { if (frame >= run.traj.length - 1) { stopPlay(); return; } frame++; showFrame(); timer = setTimeout(tick, 1000 / Number($("pSpeed").value)); };
+  timer = setTimeout(tick, 150);
+}
+function stopPlay() { clearTimeout(timer); timer = null; $("pPlay").textContent = "Play"; }
+
+/* ------------------------------------------------------------ optimise */
+function doOptimise() {
+  stopPlay();
+  const sc = SC[cur], terms = termsFor(sc);
+  const t0 = performance.now();
+  run = optimise(sc, terms);
+  const ms = performance.now() - t0;
+  const tr = truthScore(sc, run);
+  const ex = sc.exploit(run);
+  const total = Math.round(run.total * 10) / 10;
+  const v = ex ? "game" : tr.score >= 80 ? "ok" : "fail";
+  // reward obtained vs best reward the intended behaviour would get under this reward: show both as bars
+  const maxAbs = Math.max(1, Math.abs(total));
+  $("result").innerHTML =
+    '<div class="meter"><div class="row"><span>Reward obtained (what the optimiser maximised)</span><b>' + total + '</b></div></div>' +
+    '<div class="meter"><div class="row"><span>What the designer wanted</span><b>' + tr.score + ' / 100</b></div><div class="track"><div class="fill" style="width:' + tr.score + "%;background:" + (v === "ok" ? "var(--ok)" : v === "game" ? "var(--warn)" : "var(--accent)") + '"></div></div><div class="small" style="margin-top:3px">' + esc(tr.detail) + "</div></div>" +
+    '<div class="verdict ' + v + '"><p><b>' + (v === "ok" ? "✓ Intended behaviour." : v === "game" ? "⚠ Specification gaming." : "✗ The task wasn't done.") + "</b> " + (v === "ok" ? "Your reward makes the designer's goal the best way to score." : v === "game" ? esc(ex) + " That is the optimal way to collect <i>your</i> reward." : "Nothing in your reward made the task worth doing" + (total <= 0 ? " (doing nothing scores best)." : ".")) + "</p>" + (v === "ok" && ex ? "<p>" + esc(ex) + "</p>" : "") + "</div>" +
+    (v === "ok" && cur < SC.length - 1 ? '<button class="primary" id="nextAfter" style="width:100%;margin-top:10px">Next scenario →</button>' : "") +
+    '<div class="small" style="margin-top:8px">Exact optimum over ' + run.states + " reachable states in " + ms.toFixed(0) + " ms.</div>";
+  $("resPanel").hidden = false;
+  if ($("nextAfter")) $("nextAfter").onclick = () => go(cur + 1);
+  store.att[sc.id] = (store.att[sc.id] || []).concat([{ spec: specString(terms), total, truth: tr.score, v }]).slice(-12);
+  save();
+  frame = 0; showFrame(); renderAttempts(); renderList();
+  play();
+  if (HELP) HELP.wireInfo($("resPanel"));
+}
+
+function go(i) {
+  stopPlay(); cur = i; store.cur = i; save(); run = null; frame = 0;
+  $("resPanel").hidden = true;
+  try { history.replaceState(null, "", "#" + SC[i].id); } catch (e) {}
+  renderList(); renderStory(); renderTerms(); renderAttempts(); showFrame();
+}
+
+$("optimise").onclick = doOptimise;
+$("pPlay").onclick = play;
+$("pStep").onclick = () => { stopPlay(); if (run && frame < run.traj.length - 1) { frame++; showFrame(); } };
+$("pBack").onclick = () => { stopPlay(); if (run && frame > 0) { frame--; showFrame(); } };
+$("pReset").onclick = () => { stopPlay(); frame = 0; showFrame(); };
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select, button") || e.ctrlKey || e.metaKey) return;
+  if (e.key === " ") { e.preventDefault(); play(); }
+  if (e.key === "ArrowRight") { e.preventDefault(); $("pStep").click(); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); $("pBack").click(); }
+});
+
+/* ---------- help kit ---------- */
+function helpKit(opts) {
+  // tips: {id: html}; buttons with data-tip="id" become info buttons
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  function ensureTip(id) {
+    if (document.getElementById("tip-" + id) || !opts.tips[id]) return;
+    const d = document.createElement("div");
+    d.id = "tip-" + id; d.className = "tip"; d.setAttribute("popover", ""); d.setAttribute("role", "note");
+    d.innerHTML = opts.tips[id];
+    host.appendChild(d);
+  }
+  function wireInfo(root) {
+    (root || document).querySelectorAll("[data-tip]:not([data-wired])").forEach((b) => {
+      const id = b.dataset.tip;
+      ensureTip(id);
+      b.dataset.wired = "1";
+      b.classList.add("info"); b.type = "button"; b.textContent = "i";
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", "More about this");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const p = document.getElementById("tip-" + id);
+        if (!p) return;
+        if (typeof p.togglePopover !== "function") { alert(p.textContent); return; }
+        p._anchor = b;
+        p.togglePopover();
+      });
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    const p = e.target;
+    if (!p.classList || !p.classList.contains("tip")) return;
+    const b = p._anchor;
+    if (b) b.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+    if (e.newState === "open" && b) place(p);
+  }, true);
+  function place(p) {
+    const b = p._anchor; if (!b) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    if (r.bottom < 0 || r.top > innerHeight || !b.isConnected) { p.hidePopover && p.hidePopover(); return; }
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+  }
+  const replace = () => document.querySelectorAll(".tip:popover-open").forEach(place);
+  addEventListener("scroll", replace, { passive: true, capture: true });
+  addEventListener("resize", replace);
+
+  // quick start strip
+  const qk = opts.key + "-quick-hidden";
+  const quick = document.getElementById("quick");
+  let hidden = false;
+  try { hidden = localStorage.getItem(qk) === "1"; } catch (e) {}
+  if (quick) {
+    quick.hidden = hidden;
+    quick.querySelector(".x").onclick = () => { quick.hidden = true; try { localStorage.setItem(qk, "1"); } catch (e) {} };
+    const more = quick.querySelector(".more"); if (more) more.onclick = () => openHelp();
+  }
+  // drawer
+  const dlg = document.getElementById("help");
+  function openHelp(section) {
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (section) { const d = dlg.querySelector('details[data-s="' + section + '"]'); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }
+  }
+  if (dlg) {
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  document.querySelectorAll("[data-open-help]").forEach((b) => (b.onclick = () => openHelp(b.dataset.openHelp)));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "?" ) { e.preventDefault(); dlg && dlg.open ? dlg.close() : openHelp(); }
+  });
+  wireInfo();
+  return { wireInfo, openHelp, firstVisit: !hidden };
+}
+
+const TIPS = {
+  reward: "<p>The reward is a <b>sum of the terms you switch on</b>, each multiplied by its weight: positive = reward, negative = penalty.</p><p><b>Event</b> terms count something that happens (dirt sucked, vase broken). <b>Per-step</b> terms are added at every time step (e.g. clean carpets × weight). The optimiser maximises the total over the whole episode.</p>",
+  result: "<p><b>Reward obtained</b>: the total of <i>your</i> reward for the optimal behaviour. It is high when the optimiser succeeded, whether or not that behaviour is what you wanted.</p><p><b>What the designer wanted</b>: an independent score of the outcome (0–100) based on the green box. <b>Gamed</b> = the agent found a loophole in your reward.</p>",
+  attempts: "<p>Every optimisation is recorded with the reward you used (term + weight), the reward obtained and the designer's score. Compare rows to see which change fixed what.</p>",
+  demo: "<p>Like this. Click elsewhere or press <kbd>Esc</kbd> to close.</p>",
+};
+let HELP = null;
+(function init() {
+  const h = location.hash.slice(1), i = SC.findIndex((s) => s.id === h);
+  if (i >= 0) cur = i;
+    HELP = helpKit({ key: "sg", tips: TIPS });
+  go(cur);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Environment Trainer</title>
+<meta name="description" content="Practise PEAS specification and classification of task environments (AI Agents in Practice, SWPS).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #2b2b2b; --muted: #6f6f6f; --line: #dddad3;
+  --accent: #c8102e; --accent-soft: #fbe9ec; --blue: #5b8db8; --blue-soft: #e3eef6;
+  --ok: #3f7a2a; --ok-soft: #e8f2e1; --warn: #a86a00; --warn-soft: #fbf0d9; --chip: #f1efe9;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+    --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+    --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+  --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+  --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+header.top { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 18px 24px 10px; max-width: 1240px; margin: 0 auto; }
+header.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top h1 span { color: var(--accent); }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+main { max-width: 1240px; margin: 0 auto; padding: 8px 24px 40px; display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 8px 16px 32px; } header.top { padding: 16px 16px 8px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+.pad { padding: 14px 16px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+button { font: inherit; font-size: 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+/* scenario list */
+#list { list-style: none; margin: 0; padding: 0; }
+#list li button { width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 6px 8px; display: flex; gap: 8px; align-items: center; min-height: 34px; background: transparent; }
+#list li button:hover { background: var(--chip); }
+#list li button[aria-current="true"] { background: var(--accent-soft); font-weight: 500; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+.dot.done { background: var(--ok); border-color: var(--ok); }
+.dot.part { background: var(--warn); border-color: var(--warn); }
+#list .sc { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { #listPanel details:not([open]) #list { display: none; } }
+#listPanel summary { cursor: pointer; list-style: none; }
+#listPanel summary::-webkit-details-marker { display: none; }
+#listPanel summary h2 { display: inline; }
+@media (min-width: 901px) { #listPanel summary { pointer-events: none; } }
+@media (max-width: 900px) { #listPanel summary::after { content: "▾ hide"; float: right; font-size: 12.5px; color: var(--accent); } #listPanel details:not([open]) summary::after { content: "▸ show list"; } }
+
+/* stats */
+.bar { display: grid; grid-template-columns: 96px minmax(0,1fr) 44px; gap: 8px; align-items: center; font-size: 13px; margin: 5px 0; }
+.bar .track { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--blue); }
+.bar .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar.weak .fill { background: var(--accent); }
+.small { font-size: 12.5px; color: var(--muted); }
+
+/* scenario */
+.scen h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+.meta { font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.tag { background: var(--chip); border-radius: 4px; padding: 0 6px; }
+.scen .desc { font-size: 16px; margin: 10px 0 0; max-width: 72ch; }
+.step { border-top: 1px solid var(--line); }
+.step > h3 { font-size: 15px; margin: 0 0 4px; display: flex; gap: 10px; align-items: baseline; }
+.step > h3 .n { color: var(--accent); font-weight: 600; }
+.step > p.lead { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
+
+.peas { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+@media (max-width: 640px) { .peas { grid-template-columns: minmax(0,1fr); } }
+.peas label { font-weight: 500; font-size: 14px; display: block; margin-bottom: 4px; }
+.peas label b { color: var(--accent); }
+.peas textarea { width: 100%; min-height: 70px; font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); resize: vertical; }
+.ref { margin-top: 6px; font-size: 13.5px; background: var(--blue-soft); border-radius: 6px; padding: 6px 8px; }
+.ref .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: block; }
+
+.dims { display: flex; flex-direction: column; gap: 10px; }
+.dim { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.dim .hd { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.dim .name { font-weight: 600; font-size: 14.5px; min-width: 120px; }
+.dim .q { font-size: 13px; color: var(--muted); flex: 1; min-width: 200px; }
+.opts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.opts label { position: relative; }
+.opts input { position: absolute; opacity: 0; pointer-events: none; }
+.opts span { display: inline-block; border: 1px solid var(--line); border-radius: 18px; padding: 5px 14px; font-size: 14px; cursor: pointer; user-select: none; }
+.opts label:hover span { border-color: var(--muted); }
+.opts input:checked + span { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.opts input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+.opts input:disabled + span { cursor: default; }
+.opts span.correct { border-color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok); }
+.dim.r-ok { border-color: var(--ok); background: var(--ok-soft); }
+.dim.r-bad { border-color: var(--accent); background: var(--accent-soft); }
+.dim.r-arg { border-color: var(--warn); background: var(--warn-soft); }
+.verdict { font-size: 13px; font-weight: 600; margin-left: auto; }
+.r-ok .verdict { color: var(--ok); } .r-bad .verdict { color: var(--accent); } .r-arg .verdict { color: var(--warn); }
+.why { font-size: 14px; margin-top: 8px; }
+.why .arg { margin-top: 4px; padding-left: 10px; border-left: 3px solid var(--warn); }
+.why .arg b { font-weight: 600; }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.result { font-size: 15px; font-weight: 500; }
+.result .big { font-size: 22px; font-weight: 600; }
+
+.howto { font-size: 14px; }
+.howto ul { margin: 6px 0 0; padding-left: 18px; }
+.howto li { margin: 2px 0; }
+footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 30px; color: var(--muted); font-size: 12.5px; }
+.panel h2 { display: flex; align-items: center; }
+.step > h3 { align-items: center; }
+.dim .name { display: inline-flex; align-items: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid; }
+:root { --maxw: 1240px; --code-bg: var(--chip); }
+/* ---------- help kit: quick start, info tips, help drawer ---------- */
+.helpbtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.helpbtn .q { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--panel); display: inline-grid; place-items: center; font-weight: 600; font-size: 13px; }
+.info { width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 11px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; cursor: pointer; vertical-align: 1px; margin-left: 6px; flex: none; text-transform: none; letter-spacing: 0; }
+.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); }
+.tip { position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13.5px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin-bottom: 0; }
+.tip b { font-weight: 600; }
+.tip code { font-size: 12.5px; }
+.quick { max-width: var(--maxw); margin: 0 auto 4px; padding: 0 24px; }
+.quick .in { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px 10px 14px; font-size: 14px; }
+.quick .lead { font-weight: 600; }
+.quick ol { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; counter-reset: q; flex: 1; }
+.quick li { counter-increment: q; display: flex; gap: 7px; align-items: baseline; }
+.quick li::before { content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.quick .x { margin-left: auto; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); min-height: 28px; padding: 0 4px; }
+.quick .more { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+@media (max-width: 980px) { .quick { padding: 0 16px; } }
+@media (max-width: 700px) { .quick .lead { order: 0; } .quick .x { order: 1; } .quick ol { order: 2; flex-basis: 100%; flex-direction: column; } .quick .more { order: 3; } }
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(560px, 100vw); max-width: 100vw; border: 0; border-left: 1px solid var(--line); padding: 0; background: var(--panel); color: var(--ink); }
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer .dh { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
+dialog.drawer .dh h2 { margin: 0; font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); padding: 0; }
+dialog.drawer .dh button { margin-left: auto; }
+dialog.drawer .db { padding: 6px 18px 28px; font-size: 14.5px; }
+dialog.drawer details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+dialog.drawer summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+dialog.drawer details > div { padding-top: 8px; }
+dialog.drawer p { margin: 0 0 8px; }
+dialog.drawer ul { margin: 0 0 8px; padding-left: 18px; } dialog.drawer li { margin: 3px 0; }
+dialog.drawer table { font-size: 13.5px; }
+dialog.drawer pre { background: var(--code-bg, var(--chip)); padding: 8px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+kbd { font-family: "Fira Mono", ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+.home { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: -6px; }
+.home:hover, .home:focus-visible { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="index.html">← All tools</a>
+  <h1>Task Environment <span>Trainer</span></h1>
+  <p>Specify the task environment (PEAS), then classify it along the seven dimensions.</p>
+  <button class="helpbtn" data-open-help="" aria-haspopup="dialog"><span class="q">?</span>Help</button>
+</header>
+<div class="quick" id="quick" hidden><div class="in">
+  <span class="lead">Quick start</span>
+  <ol>
+    <li><span>Read the scenario and write its <b>PEAS</b>, then compare with the model answer.</span></li>
+    <li><span>Pick one option for each of the <b>seven dimensions</b>. Unsure? Press <b>i</b> next to a dimension.</span></li>
+    <li><span>Press <b>Check</b> and read every explanation, especially the ones you got wrong.</span></li>
+  </ol>
+  <button class="more">Full guide</button>
+  <button class="x" aria-label="Hide quick start">×</button>
+</div></div>
+
+<main>
+  <aside class="stack">
+    <section class="panel pad" id="listPanel">
+      <details open id="listDetails">
+        <summary><h2>Scenarios</h2> <span class="small" id="listCount"></span></summary>
+        <ul id="list"></ul>
+      </details>
+    </section>
+    <section class="panel pad">
+      <h2>Your accuracy by dimension<button data-tip="stats" aria-label="About accuracy"></button></h2>
+      <div id="stats"></div>
+      <div class="small" id="statsNote" style="margin-top:6px"></div>
+      <button id="resetAll" style="margin-top:10px;width:100%" aria-live="polite">Reset all progress</button>
+      <div class="small" style="margin-top:6px">To redo a single scenario, use <b>Try again</b> under its answers.</div>
+    </section>
+  </aside>
+
+  <section class="panel scen" id="scen" aria-live="polite"></section>
+</main>
+
+<dialog class="drawer" id="help" aria-labelledby="helpTitle">
+  <div class="dh"><h2 id="helpTitle">How to use the trainer</h2><button class="close">Close</button></div>
+  <div class="db">
+    <details open data-s="what"><summary>What is this for?</summary><div>
+      <p>Every agent design starts with the task environment. Here you practise the two first steps from Russell &amp; Norvig, ch. 2: <b>specifying</b> the environment with PEAS and <b>classifying</b> it along seven dimensions that decide which kind of agent you need.</p>
+    </div></details>
+    <details data-s="how"><summary>How it works</summary><div>
+      <ol>
+        <li>Pick a scenario from the list (or go through them in order with <b>Next scenario</b>).</li>
+        <li><b>PEAS</b>: write your own answer first. Only then press <b>Compare with model answer</b>. There is no automatic grading; the point is to notice what you missed.</li>
+        <li><b>Classify</b>: choose one option per dimension and press <b>Check</b>. Every dimension gets an explanation.</li>
+        <li><b>Try again</b> clears your choices for that scenario.</li>
+      </ol>
+      <p>Scenarios marked <i>from the textbook</i> follow AIMA's tables; <i>new case</i> ones apply the same reasoning to modern systems.</p>
+    </div></details>
+    <details data-s="marks"><summary>How answers are marked</summary><div>
+      <ul>
+        <li><b style="color:var(--ok)">✓ correct</b>: matches the textbook answer.</li>
+        <li><b style="color:var(--warn)">✓ defensible</b>: a genuinely contested case; any defensible option counts, and the arguments for each side are shown. Read them: in an exam, the justification is what earns the points.</li>
+        <li><b style="color:var(--accent)">✗ not quite</b>: compare your reasoning with the explanation.</li>
+      </ul>
+      <p>A dot in the list shows your result: <span style="color:var(--ok)">●</span> all seven right, <span style="color:var(--warn)">●</span> some wrong.</p>
+    </div></details>
+    <details data-s="cheat"><summary>Cheat sheet: the seven dimensions</summary><div>
+      <table><thead><tr><th>Dimension</th><th>Ask yourself</th><th>first option</th><th>second option</th></tr></thead><tbody><tr><td><b>Observable</b></td><td>Do the sensors give the complete relevant state?</td><td>chess board</td><td>poker, taxi</td></tr><tr><td><b>Agents</b></td><td>Does someone else maximise a measure that depends on me?</td><td>crossword</td><td>chess, traffic</td></tr><tr><td><b>Deterministic</b></td><td>Does state + action fix the next state?</td><td>crossword, chess</td><td>dice, traffic</td></tr><tr><td><b>Episodic</b></td><td>Does this decision affect later ones?</td><td>defect detection</td><td>chess, driving</td></tr><tr><td><b>Static</b></td><td>Can the world change while I think?</td><td>crossword (chess with clock: semi)</td><td>driving</td></tr><tr><td><b>Discrete</b></td><td>Finitely many states, percepts, actions?</td><td>chess</td><td>driving</td></tr><tr><td><b>Known</b></td><td>Do I know what my actions do?</td><td>chess rules</td><td>new game, no manual</td></tr></tbody></table>
+      <p style="margin-top:8px">Each dimension has its own <button data-tip="demo" aria-label="Example info button"></button> button with definitions, examples and the usual traps.</p>
+    </div></details>
+    <details data-s="traps"><summary>Common traps</summary><div>
+      <ul>
+        <li><b>Unknown map ≠ unknown environment.</b> Not seeing the state is partial observability; not knowing what your actions do is unknown.</li>
+        <li><b>An opponent does not make the world stochastic.</b> Chess is deterministic and multi-agent.</li>
+        <li><b>Moving things are not agents.</b> Only entities that optimise something depending on you are.</li>
+        <li><b>‘Sequential’ here is not ‘not parallel’.</b> It means decisions have long-term consequences.</li>
+        <li><b>The answer depends on how you frame the task.</b> Diagnosis from one set of symptoms is episodic; diagnosis with tests and follow-up is sequential. State your framing.</li>
+      </ul>
+    </div></details>
+    <details data-s="peas"><summary>Writing a good PEAS</summary><div>
+      <ul>
+        <li><b>P</b>: describe desired <b>outcomes</b> in the world, not behaviours (‘clean floor’, not ‘moves around a lot’). Name the trade-offs (fast vs. safe).</li>
+        <li><b>E</b>: include other agents and anything that varies (weather, users).</li>
+        <li><b>A / S</b>: concrete devices or channels: for software agents, API calls and messages count.</li>
+      </ul>
+    </div></details>
+    <details data-s="data"><summary>Your progress</summary><div>
+      <p>Answers and PEAS notes are saved automatically in this browser only (nothing is sent anywhere). Another browser or device starts fresh. <b>Reset all progress</b> in the left panel deletes everything.</p>
+      <p>Shortcut: <kbd>?</kbd> opens this guide, <kbd>Esc</kbd> closes it.</p>
+    </div></details>
+  </div>
+</dialog>
+<footer>AI Agents in Practice · SWPS University · classifications follow Russell &amp; Norvig, <i>Artificial Intelligence: A Modern Approach</i> (4th ed.), §2.3. Progress is stored only in this browser.</footer>
+
+<script>
+"use strict";
+/* ============================================================ dimensions */
+const DIMS = [
+  { k: "obs", name: "Observable", opts: ["Fully", "Partially"],
+    q: "Do the sensors give the complete state relevant to choosing an action, at every moment?" },
+  { k: "agents", name: "Agents", opts: ["Single", "Multi"],
+    q: "Is there another entity whose behaviour is best described as maximising a measure that depends on this agent's behaviour?" },
+  { k: "det", name: "Deterministic", opts: ["Deterministic", "Stochastic"],
+    q: "Is the next state completely determined by the current state and the agent's action?" },
+  { k: "epi", name: "Episodic", opts: ["Episodic", "Sequential"],
+    q: "Can the current decision affect future decisions?" },
+  { k: "stat", name: "Static", opts: ["Static", "Semidynamic", "Dynamic"],
+    q: "Can the environment change while the agent is deliberating? (Semidynamic: it can't, but the score changes with time.)" },
+  { k: "disc", name: "Discrete", opts: ["Discrete", "Continuous"],
+    q: "Do states, time, percepts and actions take a finite set of distinct values?" },
+  { k: "known", name: "Known", opts: ["Known", "Unknown"],
+    q: "Does the agent (or its designer) know the outcomes, or outcome probabilities, of its actions? (About the ‘laws of physics’, not the current state.)" },
+];
+
+/* ============================================================ scenarios
+   a: correct option, or an array of defensible options (contested)
+   why: explanation; args: {option: argument} for contested dimensions */
+const SCENARIOS = [
+  {
+    id: "crossword", title: "Crossword puzzle", src: "AIMA",
+    text: "A program solves a newspaper crossword. It sees the whole grid and all the clues, and writes letters into the cells.",
+    peas: { P: "Correctly and completely filled grid (possibly: time taken)", E: "The crossword grid and its clues", A: "Writing letters into cells (and erasing them)", S: "Reading the grid and the clues" },
+    d: {
+      obs: { a: "Fully", why: "The entire grid and every clue are visible; nothing relevant is hidden." },
+      agents: { a: "Single", why: "No one else acts in this environment." },
+      det: { a: "Deterministic", why: "Writing a letter has exactly the intended effect." },
+      epi: { a: "Sequential", why: "Each letter constrains the crossing words: early choices shape later ones." },
+      stat: { a: "Static", why: "The puzzle waits while the program thinks, and nothing scores time." },
+      disc: { a: "Discrete", why: "Finitely many cells and letters." },
+      known: { a: "Known", why: "The rules of crosswords are given." },
+    },
+  },
+  {
+    id: "chessclock", title: "Chess with a clock", src: "AIMA",
+    text: "A chess engine plays a tournament game against a human. Each player has 90 minutes on the clock for the whole game.",
+    peas: { P: "Win (draw better than loss); not losing on time", E: "Board, opponent, chess clock", A: "Moving pieces; pressing the clock", S: "Board position, the opponent's moves, the clock" },
+    d: {
+      obs: { a: "Fully", why: "The whole board is visible; the position is the complete relevant state." },
+      agents: { a: "Multi", why: "The opponent maximises its own measure, which is the opposite of ours: a competitive multi-agent environment." },
+      det: { a: "Deterministic", why: "A move has exactly one outcome. Uncertainty about the opponent comes from the other agent, not from randomness in the environment's dynamics; AIMA classifies chess as deterministic." },
+      epi: { a: "Sequential", why: "Every move changes the options for the rest of the game." },
+      stat: { a: "Semidynamic", why: "The board does not change while the engine thinks, but its clock runs, so the score does." },
+      disc: { a: "Discrete", why: "Finitely many positions and moves (ignoring the clock's time)." },
+      known: { a: "Known", why: "The rules of chess are given to the agent." },
+    },
+  },
+  {
+    id: "poker", title: "Poker", src: "AIMA",
+    text: "A bot plays online Texas hold'em at a table with five human players.",
+    peas: { P: "Chips won over many hands", E: "Table, deck, other players", A: "Fold, check, call, bet, raise", S: "Own cards, community cards, other players' bets" },
+    d: {
+      obs: { a: "Partially", why: "The opponents' cards are hidden." },
+      agents: { a: "Multi", why: "Every other player maximises their own winnings, at our expense." },
+      det: { a: "Stochastic", why: "The cards are shuffled and dealt at random." },
+      epi: { a: "Sequential", why: "Bets within a hand, and the table image you build across hands, affect later decisions." },
+      stat: { a: "Static", why: "The table waits for the bot's decision (ignoring any action timer)." },
+      disc: { a: "Discrete", why: "Finite cards and finitely many betting actions." },
+      known: { a: "Known", why: "The rules and the probabilities of the cards are known; the opponents' strategies are not, but that is a multi-agent issue, not an unknown environment." },
+    },
+  },
+  {
+    id: "backgammon", title: "Backgammon", src: "AIMA",
+    text: "A program plays backgammon against a human opponent. Moves depend on the roll of two dice.",
+    peas: { P: "Win the game (and the doubling-cube stakes)", E: "Board, dice, opponent", A: "Moving checkers; doubling", S: "Board position, dice" },
+    d: {
+      obs: { a: "Fully", why: "Board and dice are visible to both players." },
+      agents: { a: "Multi", why: "A competitive opponent." },
+      det: { a: "Stochastic", why: "Dice rolls determine which moves are possible: a quantified chance element." },
+      epi: { a: "Sequential", why: "Each move affects the rest of the game." },
+      stat: { a: "Static", why: "The board does not change while the program thinks." },
+      disc: { a: "Discrete", why: "Finite positions, dice values and moves." },
+      known: { a: "Known", why: "Rules and dice probabilities are known." },
+    },
+  },
+  {
+    id: "taxi", title: "Automated taxi", src: "AIMA",
+    text: "A self-driving taxi picks up passengers in a city and drives them to their destinations in ordinary traffic.",
+    peas: { P: "Safe, fast, legal, comfortable trip; profit; little impact on other road users", E: "Roads, other traffic, police, pedestrians, customers, weather", A: "Steering, accelerator, brake, signals, horn, display/speech", S: "Cameras, radar, lidar, speedometer, GPS, accelerometer, engine sensors, microphone" },
+    d: {
+      obs: { a: "Partially", why: "It cannot see around corners or know what other drivers intend." },
+      agents: { a: "Multi", why: "Other drivers maximise their own measures, which depend on ours (partly cooperative: avoiding collisions; partly competitive: a parking space)." },
+      det: { a: "Stochastic", why: "Traffic is unpredictable; tyres burst, engines fail." },
+      epi: { a: "Sequential", why: "Every manoeuvre has long-term consequences." },
+      stat: { a: "Dynamic", why: "Other cars keep moving while the taxi deliberates; not deciding is also a decision." },
+      disc: { a: "Continuous", why: "Position, speed, time and steering angle vary continuously." },
+      known: { a: "Known", why: "The physics of driving and the traffic rules are mostly known (though not in a foreign country with unfamiliar rules)." },
+    },
+  },
+  {
+    id: "medical", title: "Medical diagnosis system", src: "AIMA",
+    text: "A diagnostic assistant asks a patient questions, orders tests, interprets the results and proposes a diagnosis and treatment.",
+    peas: { P: "Healthy patient, low costs (tests, treatment, time)", E: "Patient, hospital, medical staff", A: "Questions, test orders, diagnoses, treatments, referrals", S: "Touchscreen/voice entry of symptoms and findings, test results" },
+    d: {
+      obs: { a: "Partially", why: "The disease itself is hidden; only symptoms and test results are observed." },
+      agents: { a: ["Single", "Multi"], why: "Depends on what you model as an agent.",
+        args: { Single: "The disease process is not an agent: it does not maximise anything that depends on our behaviour (AIMA's classification).", Multi: "Recalcitrant patients and sceptical staff have their own goals that interact with the system's decisions." } },
+      det: { a: "Stochastic", why: "Test results, treatment responses and disease progression are uncertain." },
+      epi: { a: ["Sequential", "Episodic"], why: "Depends on the scope of the task.",
+        args: { Sequential: "With tests, treatment and follow-up, every decision affects later ones (AIMA's classification).", Episodic: "If the task is only ‘diagnose from a given set of symptoms’, each case is an independent episode." } },
+      stat: { a: "Dynamic", why: "The patient's condition can change while the system deliberates." },
+      disc: { a: "Continuous", why: "Physiological variables (temperature, blood values) are continuous." },
+      known: { a: "Known", why: "Medical knowledge gives (approximate) probabilities of test results and treatment outcomes." },
+    },
+  },
+  {
+    id: "satellite", title: "Satellite image analysis", src: "AIMA",
+    text: "A system receives images from an orbiting satellite and labels each region: forest, water, field, built-up area. Images keep arriving and must be processed within a time budget.",
+    peas: { P: "Correct categorisation of objects and terrain", E: "Orbiting satellite, downlink, weather", A: "Display or output of the scene categorisation", S: "High-resolution digital camera images" },
+    d: {
+      obs: { a: "Fully", why: "Each image contains what is needed to categorise it." },
+      agents: { a: "Single", why: "No one else acts in the environment." },
+      det: { a: "Deterministic", why: "Labelling an image has a certain effect (AIMA's classification)." },
+      epi: { a: "Episodic", why: "Each image is labelled independently; one label does not change the next image." },
+      stat: { a: "Semidynamic", why: "The image does not change while the system thinks, but its score depends on finishing in time (AIMA: semi)." },
+      disc: { a: "Continuous", why: "Pixel intensities and locations are treated as continuous." },
+      known: { a: "Known", why: "The effect of producing a label is known." },
+    },
+  },
+  {
+    id: "picking", title: "Part-picking robot", src: "AIMA",
+    text: "A robot arm above a conveyor belt picks up parts as they pass and drops each one into the correct bin.",
+    peas: { P: "Percentage of parts in correct bins", E: "Conveyor belt with parts; bins", A: "Jointed arm and hand", S: "Camera, tactile and joint-angle sensors" },
+    d: {
+      obs: { a: "Partially", why: "Parts may be occluded or seen from an awkward angle; sensors are noisy." },
+      agents: { a: "Single", why: "Nothing else optimises anything here." },
+      det: { a: "Stochastic", why: "Grasps slip and parts arrive at unpredictable positions." },
+      epi: { a: "Episodic", why: "Each part is an independent episode, like quality control on an assembly line." },
+      stat: { a: "Dynamic", why: "The belt keeps moving while the robot thinks." },
+      disc: { a: "Continuous", why: "Arm angles and part positions vary continuously." },
+      known: { a: "Known", why: "The mechanics of the arm and belt are known." },
+    },
+  },
+  {
+    id: "refinery", title: "Refinery controller", src: "AIMA",
+    text: "A control system runs a section of an oil refinery: it sets valves, pumps and heaters to keep the process efficient and safe.",
+    peas: { P: "Purity, yield, safety", E: "Refinery, raw materials, operators", A: "Valves, pumps, heaters, stirrers, displays", S: "Temperature, pressure, flow and chemical sensors" },
+    d: {
+      obs: { a: "Partially", why: "Sensors measure only some points of the process, with noise." },
+      agents: { a: "Single", why: "AIMA treats the operators as part of the environment." },
+      det: { a: "Stochastic", why: "Raw-material quality varies, equipment wears out." },
+      epi: { a: "Sequential", why: "Settings now determine the process state later." },
+      stat: { a: "Dynamic", why: "The chemical process runs on while the controller decides." },
+      disc: { a: "Continuous", why: "Temperatures, pressures and flows are continuous." },
+      known: { a: "Known", why: "The chemistry and physics of the process are well understood." },
+    },
+  },
+  {
+    id: "tutor", title: "Interactive English tutor", src: "AIMA",
+    text: "A tutoring app gives a group of students exercises and feedback in English, and speaks with them. Success is measured by their test results.",
+    peas: { P: "Students' scores on tests", E: "Set of students, testing agency", A: "Exercises, suggestions, corrections, speech", S: "Keyboard entry, voice" },
+    d: {
+      obs: { a: "Partially", why: "What the students actually understand is hidden; only their answers are observed." },
+      agents: { a: "Multi", why: "The students are agents with goals of their own (which may not be ‘learn as much as possible’)." },
+      det: { a: "Stochastic", why: "How a student reacts to an exercise is uncertain." },
+      epi: { a: "Sequential", why: "What students learn now affects what they can do later." },
+      stat: { a: "Dynamic", why: "Students act, get bored or leave while the tutor deliberates." },
+      disc: { a: "Discrete", why: "Exercises, answers and text are discrete (AIMA's classification)." },
+      known: { a: ["Known", "Unknown"], why: "Depends on what counts as the environment's ‘laws’.",
+        args: { Known: "The effects of its actions (presenting an exercise, giving feedback) are known to the designer.", Unknown: "How this particular group of students responds to each kind of exercise has to be learned." } },
+    },
+  },
+  {
+    id: "spam", title: "Spam filter", src: "new",
+    text: "An e-mail service classifies every incoming message as spam or not spam. Spammers keep changing their tactics to get through.",
+    peas: { P: "Few spam messages in the inbox, very few legitimate messages lost", E: "Stream of e-mails, senders (incl. spammers), users", A: "Label/move each message; possibly block senders", S: "Message content, headers, sender reputation, users' ‘not spam’ clicks" },
+    d: {
+      obs: { a: "Partially", why: "The relevant fact (the sender's intent) is hidden; only the message is seen." },
+      agents: { a: "Multi", why: "Spammers maximise delivered spam, which depends on the filter: a competitive environment." },
+      det: { a: "Stochastic", why: "Which messages arrive, and how users react, is uncertain." },
+      epi: { a: ["Episodic", "Sequential"], why: "Depends on the time scale.",
+        args: { Episodic: "Each message is classified independently; the label of one does not change the next message.", Sequential: "Over weeks, spammers adapt to what the filter blocks, so today's policy shapes tomorrow's spam." } },
+      stat: { a: "Static", why: "A message does not change while it is being classified." },
+      disc: { a: "Discrete", why: "Text, headers and the label are discrete." },
+      known: { a: "Unknown", why: "What spam looks like must be learned from data, and it keeps changing." },
+    },
+  },
+  {
+    id: "music", title: "Music recommender", src: "new",
+    text: "A streaming app chooses the next song for a listener, who may skip it, like it, or close the app.",
+    peas: { P: "Listening time, few skips, long-term satisfaction and retention", E: "The listener, the catalogue, context (time, device)", A: "Choosing the next track; showing recommendations", S: "Plays, skips, likes, searches, context signals" },
+    d: {
+      obs: { a: "Partially", why: "The listener's mood and preferences are hidden; only clicks and skips are seen." },
+      agents: { a: ["Single", "Multi"], why: "Depends on how you model the listener.",
+        args: { Single: "The listener is part of the environment that reacts to recommendations.", Multi: "The listener maximises their own enjoyment, which depends on the recommendations: a (cooperative) multi-agent setting by AIMA's criterion." } },
+      det: { a: "Stochastic", why: "Whether a given song is skipped is uncertain." },
+      epi: { a: "Sequential", why: "What you play now shapes the listener's taste, their session and what you learn about them." },
+      stat: { a: ["Static", "Dynamic"], why: "Depends on the time scale of deliberation.",
+        args: { Static: "Choosing takes milliseconds; nothing relevant changes meanwhile.", Dynamic: "The current song ends and the listener keeps acting whether or not a choice is ready." } },
+      disc: { a: "Discrete", why: "A finite catalogue and discrete feedback." },
+      known: { a: "Unknown", why: "How the listener responds to each song (the outcome of each action) must be learned." },
+    },
+  },
+  {
+    id: "roomba", title: "Robot vacuum in a new flat", src: "new",
+    text: "A round robot vacuum cleans a flat it has never seen before. It has bump sensors, a lidar and a dirt sensor, and builds a map as it goes.",
+    peas: { P: "Clean floor area per charge; little noise; no getting stuck", E: "Rooms, furniture, carpets, cables, people and pets", A: "Wheels, brushes, suction", S: "Lidar, bump sensors, dirt sensor, wheel odometry, cliff sensors" },
+    d: {
+      obs: { a: "Partially", why: "Only the nearby part of the flat is sensed at any time." },
+      agents: { a: "Single", why: "People and pets move around, but they don't optimise anything that depends on the robot." },
+      det: { a: "Stochastic", why: "Wheels slip, objects move, dirt appears." },
+      epi: { a: "Sequential", why: "Where it goes now determines what it can clean later and its battery." },
+      stat: { a: "Dynamic", why: "People and pets move while it deliberates." },
+      disc: { a: "Continuous", why: "Position and heading vary continuously." },
+      known: { a: "Known", why: "Trap: the map is unknown, but that is partial observability. The ‘laws of physics’ (how wheels and suction work) are known. Known/unknown is about the effects of actions, not about the current state." },
+    },
+  },
+  {
+    id: "rubik", title: "Rubik's cube solver", src: "new",
+    text: "A program receives the colours of all 54 stickers of a scrambled cube and outputs a sequence of face turns that solves it.",
+    peas: { P: "Solved cube; few moves; short computation", E: "The cube", A: "Face turns", S: "Sticker colours of all six faces" },
+    d: {
+      obs: { a: "Fully", why: "All stickers are given." },
+      agents: { a: "Single", why: "No one else acts." },
+      det: { a: "Deterministic", why: "Each turn has exactly one result." },
+      epi: { a: "Sequential", why: "Each turn changes the position from which all later turns start." },
+      stat: { a: "Static", why: "The cube waits." },
+      disc: { a: "Discrete", why: "Finitely many positions (about 4.3 × 10¹⁹) and 18 basic turns." },
+      known: { a: "Known", why: "The effect of each turn is known." },
+    },
+  },
+  {
+    id: "atari", title: "Atari Breakout from pixels", src: "new",
+    text: "A reinforcement-learning agent (like DeepMind's DQN) learns to play Breakout. It sees only the screen pixels and the score, and is told nothing about the rules.",
+    peas: { P: "Game score", E: "The Atari emulator running Breakout", A: "Joystick: left, right, fire, no-op", S: "Screen pixels, score" },
+    d: {
+      obs: { a: ["Fully", "Partially"], why: "Depends on what one percept is.",
+        args: { Fully: "The screen shows the ball, paddle and bricks: the whole game state.", Partially: "A single frame does not show the ball's direction or speed. That is exactly why DQN stacks the last four frames as its percept." } },
+      agents: { a: "Single", why: "No opponent." },
+      det: { a: "Deterministic", why: "The emulator is deterministic (benchmarks add random ‘sticky actions’ precisely to make it less so)." },
+      epi: { a: "Sequential", why: "Paddle moves now decide whether you catch the ball later." },
+      stat: { a: "Dynamic", why: "For a human player the ball keeps moving. (In training, the emulator waits for the agent, which makes it effectively static: a design choice.)" },
+      disc: { a: "Discrete", why: "Finite pixels, colours and four actions." },
+      known: { a: "Unknown", why: "The agent must learn what its actions do: a fully observable but unknown environment, the textbook example." },
+    },
+  },
+  {
+    id: "llmcoder", title: "LLM coding agent", src: "new",
+    text: "An LLM agent receives a bug report, reads files in a repository, runs the test suite and edits code until the tests pass, then opens a pull request.",
+    peas: { P: "Bug fixed, tests pass, small and correct change; time and cost", E: "Repository, test runner, terminal, the user, CI", A: "Tool calls: read/write files, run commands, open a PR, ask the user", S: "Tool outputs: file contents, test results, error messages; user messages" },
+    d: {
+      obs: { a: "Partially", why: "It sees only the files and outputs it has requested, not the whole codebase at once." },
+      agents: { a: ["Single", "Multi"], why: "Depends on the setting.",
+        args: { Single: "Working alone on a local copy, nothing else acts.", Multi: "The user, reviewers and colleagues pushing to the same branch have goals that interact with the agent's work." } },
+      det: { a: ["Deterministic", "Stochastic"], why: "Depends on the codebase.",
+        args: { Deterministic: "Editing a file or running a deterministic test suite has a predictable result.", Stochastic: "Flaky tests, network calls and timing make outcomes uncertain." } },
+      epi: { a: "Sequential", why: "Every edit changes what later commands and tests will do." },
+      stat: { a: "Static", why: "The repository does not change while the model thinks (unless someone else pushes)." },
+      disc: { a: "Discrete", why: "Text, files and commands are discrete." },
+      known: { a: "Known", why: "What its tools do is known; what the code does is partly hidden, which is partial observability." },
+    },
+  },
+  {
+    id: "thermostat", title: "Smart thermostat", src: "new",
+    text: "A thermostat switches the heating on and off to keep a living room at 21 °C, using a single temperature sensor.",
+    peas: { P: "Temperature close to 21 °C; low energy use", E: "Room, heating, outdoor weather, people, windows", A: "Heating on/off", S: "Room temperature sensor" },
+    d: {
+      obs: { a: ["Fully", "Partially"], why: "Depends on what counts as relevant.",
+        args: { Fully: "For on/off control the current temperature is all it needs: that's why a simple reflex rule works.", Partially: "An open window or the outdoor temperature matter for good control, and it cannot sense them." } },
+      agents: { a: "Single", why: "People change the room, but they aren't optimising a measure that depends on the thermostat." },
+      det: { a: "Stochastic", why: "Weather, open windows and people make the temperature unpredictable." },
+      epi: { a: "Sequential", why: "Heating now affects the temperature later (overshoot)." },
+      stat: { a: "Dynamic", why: "The temperature keeps changing." },
+      disc: { a: "Continuous", why: "Temperature and time are continuous (the action is discrete)." },
+      known: { a: "Known", why: "The effect of heating is known." },
+    },
+  },
+  {
+    id: "rps", title: "Rock–paper–scissors bot", src: "new",
+    text: "A bot plays 100 rounds of rock–paper–scissors against a human. In each round both choose at the same time.",
+    peas: { P: "Rounds won minus rounds lost", E: "The human opponent", A: "Rock, paper or scissors", S: "Opponent's moves in past rounds" },
+    d: {
+      obs: { a: "Partially", why: "The opponent's current choice is hidden (they choose simultaneously)." },
+      agents: { a: "Multi", why: "A competitive opponent. Here randomised play is rational: being predictable is exploitable." },
+      det: { a: "Deterministic", why: "Given both choices, the outcome is fixed. The uncertainty is about the other agent." },
+      epi: { a: ["Sequential", "Episodic"], why: "Depends on the opponent.",
+        args: { Episodic: "Against an opponent who plays randomly, each round is independent.", Sequential: "Real people have patterns and react to your past moves; learning them across rounds is how you win." } },
+      stat: { a: "Static", why: "Nothing changes until both have chosen." },
+      disc: { a: "Discrete", why: "Three actions." },
+      known: { a: "Known", why: "The rules are known; the opponent's strategy is a multi-agent issue." },
+    },
+  },
+];
+
+/* ============================================================ storage */
+const KEY = "env-trainer-v1";
+let store = {};
+try { store = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { store = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+function rec(id) { return (store[id] = store[id] || { choices: {}, peas: {}, checked: false, peasShown: false }); }
+
+/* ============================================================ helpers */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function accepted(sc, k) { const a = sc.d[k].a; return Array.isArray(a) ? a : [a]; }
+function verdict(sc, k, choice) {
+  if (!choice) return "none";
+  const acc = accepted(sc, k);
+  if (!acc.includes(choice)) return "bad";
+  return acc.length > 1 ? "arg" : "ok";
+}
+function scoreOf(sc) {
+  const r = store[sc.id];
+  if (!r || !r.checked) return null;
+  let s = 0;
+  for (const d of DIMS) { const v = verdict(sc, d.k, r.choices[d.k]); if (v === "ok" || v === "arg") s++; }
+  return s;
+}
+let current = 0;
+
+/* ---------- help kit ---------- */
+function helpKit(opts) {
+  // tips: {id: html}; buttons with data-tip="id" become info buttons
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  function ensureTip(id) {
+    if (document.getElementById("tip-" + id) || !opts.tips[id]) return;
+    const d = document.createElement("div");
+    d.id = "tip-" + id; d.className = "tip"; d.setAttribute("popover", ""); d.setAttribute("role", "note");
+    d.innerHTML = opts.tips[id];
+    host.appendChild(d);
+  }
+  function wireInfo(root) {
+    (root || document).querySelectorAll("[data-tip]:not([data-wired])").forEach((b) => {
+      const id = b.dataset.tip;
+      ensureTip(id);
+      b.dataset.wired = "1";
+      b.classList.add("info"); b.type = "button"; b.textContent = "i";
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", "More about this");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const p = document.getElementById("tip-" + id);
+        if (!p) return;
+        if (typeof p.togglePopover !== "function") { alert(p.textContent); return; }
+        p._anchor = b;
+        p.togglePopover();
+      });
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    const p = e.target;
+    if (!p.classList || !p.classList.contains("tip")) return;
+    const b = p._anchor;
+    if (b) b.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+    if (e.newState === "open" && b) place(p);
+  }, true);
+  function place(p) {
+    const b = p._anchor; if (!b) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    if (r.bottom < 0 || r.top > innerHeight || !b.isConnected) { p.hidePopover && p.hidePopover(); return; }
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+  }
+  const replace = () => document.querySelectorAll(".tip:popover-open").forEach(place);
+  addEventListener("scroll", replace, { passive: true, capture: true });
+  addEventListener("resize", replace);
+
+  // quick start strip
+  const qk = opts.key + "-quick-hidden";
+  const quick = document.getElementById("quick");
+  let hidden = false;
+  try { hidden = localStorage.getItem(qk) === "1"; } catch (e) {}
+  if (quick) {
+    quick.hidden = hidden;
+    quick.querySelector(".x").onclick = () => { quick.hidden = true; try { localStorage.setItem(qk, "1"); } catch (e) {} };
+    const more = quick.querySelector(".more"); if (more) more.onclick = () => openHelp();
+  }
+  // drawer
+  const dlg = document.getElementById("help");
+  function openHelp(section) {
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (section) { const d = dlg.querySelector('details[data-s="' + section + '"]'); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }
+  }
+  if (dlg) {
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  document.querySelectorAll("[data-open-help]").forEach((b) => (b.onclick = () => openHelp(b.dataset.openHelp)));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "?" ) { e.preventDefault(); dlg && dlg.open ? dlg.close() : openHelp(); }
+  });
+  wireInfo();
+  return { wireInfo, openHelp, firstVisit: !hidden };
+}
+const TIPS = {
+ "peas": "<p><b>P</b>erformance measure: what outcome counts as success, judged on the <b>world states</b>, not on how the agent behaves. Often several conflicting criteria.</p><p><b>E</b>nvironment: everything the agent acts in, including other agents.</p><p><b>A</b>ctuators: what the agent can <b>do</b>. <b>S</b>ensors: what it can <b>perceive</b>.</p><p>Write keywords, not sentences. Then compare: did you miss a criterion, another agent, a sensor?</p>",
+ "colours": "<p>After <b>Check</b>:</p><p><span style='color:var(--ok);font-weight:600'>green ✓ correct</span>: matches the textbook answer.<br><span style='color:var(--warn);font-weight:600'>amber ✓ defensible</span>: a contested case; your answer can be argued, and both sides are shown.<br><span style='color:var(--accent);font-weight:600'>red ✗ not quite</span>: read the explanation.</p><p>Options with a green outline are the accepted ones.</p>",
+ "stats": "<p>Share of scenarios in which you got each dimension right (defensible answers count). Red bars, below 70%, show the dimensions worth revisiting: open the <b>i</b> next to that dimension and re-read its question.</p><p>Stored only in this browser. <b>Try again</b> on a scenario replaces its result.</p>",
+ "dim-obs": "<p><b>Fully observable</b>: the sensors give everything relevant to the choice of action (chess: the whole board).</p><p><b>Partially</b>: noisy sensors or hidden parts of the state (poker cards, other drivers' intentions, the room next door).</p><p><b>Trap:</b> ‘relevant’ depends on the task. A thermostat may need nothing but the temperature.</p>",
+ "dim-agents": "<p><b>Multi-agent</b> only if another entity is best described as <b>maximising a measure that depends on your behaviour</b> (chess opponent, other drivers). Competitive or cooperative.</p><p><b>Trap:</b> things that merely move or change (wind, a disease, a falling leaf) are part of the environment, not agents.</p>",
+ "dim-det": "<p><b>Deterministic</b>: current state + action fix the next state. <b>Stochastic</b>: outcomes are uncertain (dice, traffic, noise).</p><p><b>Trap:</b> not knowing what an <i>opponent</i> will do does not make the environment stochastic: chess is deterministic. And a deterministic world can <i>look</i> random if it is only partially observable.</p>",
+ "dim-epi": "<p><b>Episodic</b>: each decision is a separate episode; it does not affect the next one (checking parts on a belt, classifying images).</p><p><b>Sequential</b>: decisions have long-term consequences (chess, driving).</p><p>Ask: could a bad decision now make later decisions harder?</p>",
+ "dim-stat": "<p><b>Static</b>: nothing changes while the agent thinks (crossword).</p><p><b>Dynamic</b>: the world moves on; not deciding is also a decision (driving).</p><p><b>Semidynamic</b>: the world waits, but the score depends on time (chess with a clock).</p>",
+ "dim-disc": "<p>Applies to states, time, percepts and actions. <b>Discrete</b>: a finite set of distinct values (chess). <b>Continuous</b>: values on a continuum (speed, position, steering angle).</p><p>Camera images are technically discrete but usually treated as continuous.</p>",
+ "dim-known": "<p>About the agent's (or designer's) knowledge of the <b>‘laws of physics’</b>: what its actions do. <b>Unknown</b>: it must learn them, like a new video game without instructions.</p><p><b>Trap:</b> an unknown map or hidden cards are <i>partial observability</i>, not an unknown environment. Card games are known but partially observable.</p>",
+ "demo": "<p>Like this. Click anywhere else or press <kbd>Esc</kbd> to close.</p>"
+};
+let HELP = null;
+
+/* ============================================================ render */
+function renderList() {
+  const done = SCENARIOS.filter((s) => store[s.id] && store[s.id].checked).length;
+  $("listCount").textContent = "· " + done + " / " + SCENARIOS.length + " done";
+  $("list").innerHTML = SCENARIOS.map((s, i) => {
+    const sc = scoreOf(s);
+    const cls = sc === null ? "" : sc === DIMS.length ? "done" : "part";
+    return '<li><button data-i="' + i + '"' + (i === current ? ' aria-current="true"' : "") + '><span class="dot ' + cls + '" aria-hidden="true"></span>' + esc(s.title) + '<span class="sc">' + (sc === null ? "" : sc + "/" + DIMS.length) + "</span></button></li>";
+  }).join("");
+  $("list").querySelectorAll("button").forEach((b) => (b.onclick = () => {
+    go(Number(b.dataset.i));
+    if (matchMedia("(max-width: 900px)").matches) $("scen").scrollIntoView({ behavior: "smooth" });
+  }));
+}
+
+function renderStats() {
+  const rows = DIMS.map((d) => {
+    let n = 0, ok = 0;
+    for (const s of SCENARIOS) {
+      const r = store[s.id];
+      if (!r || !r.checked) continue;
+      n++;
+      const v = verdict(s, d.k, r.choices[d.k]);
+      if (v === "ok" || v === "arg") ok++;
+    }
+    return { d, n, ok };
+  });
+  const any = rows.some((r) => r.n > 0);
+  $("stats").innerHTML = rows.map((r) => {
+    const p = r.n ? r.ok / r.n : 0;
+    return '<div class="bar' + (r.n && p < 0.7 ? " weak" : "") + '"><span>' + r.d.name + '</span><span class="track"><span class="fill" style="width:' + (p * 100).toFixed(0) + '%; display:block"></span></span><span class="pct">' + (r.n ? Math.round(p * 100) + "%" : "–") + "</span></div>";
+  }).join("");
+  const weak = rows.filter((r) => r.n >= 3 && r.ok / r.n < 0.7).map((r) => r.d.name);
+  $("statsNote").textContent = !any ? "Check a scenario to see your accuracy." : weak.length ? "Worth revisiting: " + weak.join(", ") + ". Re-read the question under each dimension." : "Defensible answers on contested dimensions count as correct.";
+}
+
+function renderScenario() {
+  const sc = SCENARIOS[current], r = rec(sc.id);
+  const P = [["P", "Performance measure"], ["E", "Environment"], ["A", "Actuators"], ["S", "Sensors"]];
+  let h = '<div class="pad"><h1>' + esc(sc.title) + '</h1><div class="meta"><span>Scenario ' + (current + 1) + " of " + SCENARIOS.length + "</span>" + (sc.src === "AIMA" ? '<span class="tag">from the textbook</span>' : '<span class="tag">new case</span>') + '</div><p class="desc">' + esc(sc.text) + "</p></div>";
+
+  h += '<div class="step pad"><h3><span class="n">1</span>Specify PEAS<button data-tip="peas" aria-label="How to write PEAS"></button></h3><p class="lead">Write your own answer first, then compare. There is no single correct wording; check whether you missed anything important.</p><div class="peas">';
+  for (const [k, lab] of P) {
+    h += '<div><label for="peas-' + k + '"><b>' + k + "</b>" + lab.slice(1) + '</label><textarea id="peas-' + k + '" data-k="' + k + '" placeholder="…">' + esc(r.peas[k] || "") + "</textarea>";
+    if (r.peasShown) h += '<div class="ref"><span class="k">Model answer</span>' + esc(sc.peas[k]) + "</div>";
+    h += "</div>";
+  }
+  h += '</div><div class="actions"><button id="showPeas">' + (r.peasShown ? "Hide model answer" : "Compare with model answer") + "</button></div></div>";
+
+  h += '<div class="step pad"><h3><span class="n">2</span>Classify the task environment<button data-tip="colours" aria-label="How answers are marked"></button></h3><p class="lead">Choose one option per dimension. Some cases are genuinely contested; any defensible answer counts, and you’ll see the arguments.</p><div class="dims">';
+  for (const d of DIMS) {
+    const ch = r.choices[d.k], v = r.checked ? verdict(sc, d.k, ch) : "none";
+    const cls = r.checked ? (v === "ok" ? " r-ok" : v === "arg" ? " r-arg" : " r-bad") : "";
+    const vt = !r.checked ? "" : v === "ok" ? "✓ correct" : v === "arg" ? "✓ defensible" : v === "none" ? "✗ not answered" : "✗ not quite";
+    h += '<fieldset class="dim' + cls + '" style="margin:0"><legend class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">' + d.name + '</legend><div class="hd"><span class="name">' + d.name + '<button data-tip="dim-' + d.k + '" aria-label="About ' + d.name + '"></button></span><span class="q">' + esc(d.q) + '</span><span class="verdict">' + vt + '</span></div><div class="opts">';
+    const acc = accepted(sc, d.k);
+    for (const o of d.opts) {
+      const mark = r.checked && acc.includes(o) ? " correct" : "";
+      h += '<label><input type="radio" name="d-' + d.k + '" value="' + o + '"' + (ch === o ? " checked" : "") + (r.checked ? " disabled" : "") + '><span class="' + mark.trim() + '">' + o + "</span></label>";
+    }
+    h += "</div>";
+    if (r.checked) {
+      const info = sc.d[d.k];
+      h += '<div class="why">' + (Array.isArray(info.a) ? "<b>Contested.</b> " : "<b>" + esc(info.a) + ".</b> ") + esc(info.why);
+      if (info.args) for (const o in info.args) h += '<div class="arg"><b>' + esc(o) + ":</b> " + esc(info.args[o]) + "</div>";
+      h += "</div>";
+    }
+    h += "</fieldset>";
+  }
+  h += "</div>";
+  const s = scoreOf(sc);
+  h += '<div class="actions">';
+  if (!r.checked) h += '<button class="primary" id="check">Check my answers</button><span class="small" id="checkMsg"></span>';
+  else h += '<span class="result"><span class="big">' + s + "/" + DIMS.length + "</span> " + (s === DIMS.length ? "Excellent." : "Read the explanations above.") + '</span><button id="retry">Try again</button>';
+  h += '<span style="flex:1"></span><button id="prev"' + (current === 0 ? " disabled" : "") + '>← Previous</button><button id="next"' + (current === SCENARIOS.length - 1 ? " disabled" : "") + ">Next scenario →</button></div></div>";
+
+  $("scen").innerHTML = h;
+
+  $("scen").querySelectorAll("textarea").forEach((t) => (t.oninput = () => { r.peas[t.dataset.k] = t.value; save(); }));
+  $("showPeas").onclick = () => { r.peasShown = !r.peasShown; save(); renderScenario(); };
+  $("scen").querySelectorAll("input[type=radio]").forEach((inp) => (inp.onchange = () => { r.choices[inp.name.slice(2)] = inp.value; save(); const m = $("checkMsg"); if (m) m.textContent = ""; }));
+  if ($("check")) $("check").onclick = () => {
+    const missing = DIMS.filter((d) => !r.choices[d.k]).length;
+    if (missing) { $("checkMsg").textContent = missing + " dimension" + (missing > 1 ? "s" : "") + " not answered yet."; return; }
+    r.checked = true; save(); renderAll();
+  };
+  if ($("retry")) $("retry").onclick = () => { r.checked = false; r.choices = {}; save(); renderAll(); };
+  $("prev").onclick = () => go(current - 1);
+  $("next").onclick = () => go(current + 1);
+  if (HELP) HELP.wireInfo($("scen"));
+}
+
+function renderAll() { renderList(); renderStats(); renderScenario(); }
+function go(i) {
+  current = Math.max(0, Math.min(SCENARIOS.length - 1, i));
+  try { history.replaceState(null, "", "#" + SCENARIOS[current].id); } catch (e) {}
+  renderAll();
+  window.scrollTo({ top: Math.min(window.scrollY, $("scen").offsetTop - 10) });
+}
+
+$("resetAll").onclick = () => {
+  const b = $("resetAll");
+  if (!b.dataset.armed) {
+    b.dataset.armed = "1";
+    b.textContent = "Click again to delete all answers";
+    b.classList.add("primary");
+    b._t = setTimeout(() => { delete b.dataset.armed; b.textContent = "Reset all progress"; b.classList.remove("primary"); }, 4000);
+    return;
+  }
+  clearTimeout(b._t); delete b.dataset.armed; b.classList.remove("primary");
+  store = {}; save(); current = 0;
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  renderAll();
+  b.textContent = "Progress cleared ✓";
+  setTimeout(() => { b.textContent = "Reset all progress"; }, 2500);
+};
+
+const fromHash = SCENARIOS.findIndex((s) => "#" + s.id === location.hash);
+if (fromHash >= 0) current = fromHash;
+HELP = helpKit({ key: "et", tips: TIPS });
+renderAll();
+</script>
+</body>
+</html>

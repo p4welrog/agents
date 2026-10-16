@@ -1,0 +1,1457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vacuum World Lab</title>
+<meta name="description" content="Interactive vacuum-cleaner world: experiment with sensors, agent programs and performance measures (AI Agents in Practice, SWPS).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f2;
+  --panel: #ffffff;
+  --ink: #2b2b2b;
+  --muted: #6f6f6f;
+  --line: #dddad3;
+  --accent: #c8102e;
+  --accent-soft: #fbe9ec;
+  --agent: #5b8db8;
+  --agent-soft: #e3eef6;
+  --env: #7c9a4a;
+  --env-soft: #edf3e3;
+  --floor: #f3f1ea;
+  --dirt: #9a6a38;
+  --robot: #3d3d3d;
+  --ok: #3f7a2a;
+  --code-bg: #f1efe9;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+    --accent: #ff5a6e; --accent-soft: #3a2328; --agent: #8ab6dc; --agent-soft: #23303b;
+    --env: #a5c46f; --env-soft: #2a3322; --floor: #2e2f32; --dirt: #c99a63; --robot: #d6d6d6;
+    --ok: #8fcf6f; --code-bg: #1d1e21; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+  --accent: #ff5a6e; --accent-soft: #3a2328; --agent: #8ab6dc; --agent-soft: #23303b;
+  --env: #a5c46f; --env-soft: #2a3322; --floor: #2e2f32; --dirt: #c99a63; --robot: #d6d6d6;
+  --ok: #8fcf6f; --code-bg: #1d1e21; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif; font-weight: 400;
+  font-size: 15px; line-height: 1.45;
+}
+code, .mono, textarea.code { font-family: "Fira Mono", ui-monospace, Menlo, Consolas, monospace; }
+header.top {
+  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  padding: 18px 24px 10px; max-width: 1320px; margin: 0 auto;
+}
+header.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top h1 span { color: var(--accent); }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+main {
+  max-width: 1320px; margin: 0 auto; padding: 8px 24px 40px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start;
+}
+@media (max-width: 980px) { main { grid-template-columns: minmax(0,1fr); padding: 8px 16px 32px; } header.top { padding: 16px 16px 8px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.panel > h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+  color: var(--muted); margin: 0; padding: 12px 16px 0;
+}
+.panel .body { padding: 10px 16px 16px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+
+/* world */
+#worldWrap { padding: 14px 16px 6px; }
+#world { width: 100%; height: auto; display: block; }
+.percept-row { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 0 16px 14px; align-items: center; }
+.kv { display: flex; gap: 8px; align-items: baseline; }
+.kv .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.kv .v { font-family: "Fira Mono", monospace; font-size: 16px; font-weight: 500; }
+.kv .v.act { color: var(--accent); }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+button {
+  font: inherit; font-size: 14px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; min-height: 36px;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--agent); outline-offset: 1px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+.speed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; margin-left: auto; }
+.speed input { width: 110px; }
+
+/* score */
+.scores { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+@media (max-width: 560px) { .scores { gap: 6px; } .score { padding: 6px; } .score .val { font-size: 19px; } .score .name, .score .per { font-size: 11px; } }
+.score { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.score.sel { border-color: var(--accent); background: var(--accent-soft); }
+.score .name { font-size: 12px; color: var(--muted); }
+.score .val { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.score .per { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#chart { width: 100%; height: 150px; display: block; margin-top: 10px; }
+
+.two { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; }
+@media (max-width: 760px) { .two { grid-template-columns: minmax(0,1fr); } }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--muted); font-size: 12px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+#log td { font-family: "Fira Mono", monospace; font-size: 12.5px; }
+#log tr:first-child td { background: var(--agent-soft); }
+.tablewrap { overflow-x: auto; }
+
+/* belief */
+#belief { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.bcell { width: 54px; border: 1px solid var(--line); border-radius: 6px; text-align: center; padding: 4px 0; font-size: 12px; }
+.bcell .l { font-weight: 600; }
+.bcell.here { border-color: var(--agent); box-shadow: 0 0 0 2px var(--agent-soft); }
+.bcell.dirty { background: #f3e6d6; color: #5b3a16; }
+.bcell.clean { background: var(--env-soft); }
+.bcell.unknown { background: var(--floor); color: var(--muted); }
+#memo { font-size: 13px; color: var(--muted); }
+pre.mem { background: var(--code-bg); padding: 8px; border-radius: 6px; font-size: 12px; max-height: 140px; overflow: auto; margin: 6px 0 0; }
+
+/* settings */
+.field { margin-bottom: 12px; }
+.field > label, .field > .lab { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
+select, input[type=number], input[type=text] {
+  font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); width: 100%; min-height: 34px;
+}
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; min-width: 0; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin: 6px 0; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+input[type=range] { accent-color: var(--accent); width: 100%; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg label { flex: 1; text-align: center; font-size: 13px; padding: 6px 4px; cursor: pointer; border-right: 1px solid var(--line); }
+.seg label:last-child { border-right: 0; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg input:checked + span { color: var(--accent); font-weight: 600; }
+.seg label:has(input:checked) { background: var(--accent-soft); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--agent); outline-offset: -2px; }
+
+/* rules */
+.rule { display: grid; grid-template-columns: 22px 1fr 1fr 1.2fr 26px; gap: 4px; align-items: center; margin-bottom: 4px; }
+.rule select { padding: 4px; font-size: 13px; min-height: 30px; }
+.rule .n { font-size: 12px; color: var(--muted); text-align: right; }
+.rule button { padding: 0; min-height: 28px; font-size: 16px; line-height: 1; }
+.rule.warn select.locsel { border-color: var(--accent); }
+.rulehead { display: grid; grid-template-columns: 22px 1fr 1fr 1.2fr 26px; gap: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.hl-wrap { position: relative; }
+.hl-wrap > pre.hl, .hl-wrap > textarea { font-family: "Fira Mono", ui-monospace, Menlo, Consolas, monospace; white-space: pre; tab-size: 2; letter-spacing: 0; word-spacing: 0; font-variant-ligatures: none; }
+.hl-wrap > pre.hl { position: absolute; inset: 0; margin: 0; overflow: hidden; pointer-events: none; color: var(--ink); }
+.hl-wrap > textarea { position: relative; color: transparent; background: transparent; caret-color: var(--ink); }
+.hl-wrap > textarea::selection { background: rgba(91,141,184,.35); color: transparent; }
+.hl-small { border-radius: 6px; background: var(--code-bg); }
+.hl-small > pre.hl, textarea.code { font-size: 13px; line-height: 1.5; padding: 8px; border: 1px solid transparent; }
+textarea.code { display: block; width: 100%; min-height: 260px; overflow: auto; border-color: var(--line); border-radius: 6px; resize: vertical; }
+.hl .k { color: var(--hl-kw); font-weight: 500; }
+.hl .s { color: var(--hl-str); }
+.hl .a { color: var(--hl-act); font-weight: 600; }
+.hl .n { color: var(--hl-num); }
+.hl .c { color: var(--muted); font-style: italic; }
+.hl .v { color: var(--hl-var); }
+.hl .f { color: var(--hl-fn); }
+:root { --hl-kw: #8c2a8c; --hl-str: #2f7a3a; --hl-act: #c8102e; --hl-num: #a05a00; --hl-var: #2a67a0; --hl-fn: #6b4fbb; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hl-kw: #e08ee0; --hl-str: #98d07a; --hl-act: #ff7a8a; --hl-num: #f0b060; --hl-var: #8ec5f2; --hl-fn: #b9a6ff; } }
+:root[data-theme="dark"] { --hl-kw: #e08ee0; --hl-str: #98d07a; --hl-act: #ff7a8a; --hl-num: #f0b060; --hl-var: #8ec5f2; --hl-fn: #b9a6ff; }
+.msg { font-size: 13px; margin-top: 6px; }
+.msg.err { color: var(--accent); }
+.msg.ok { color: var(--ok); }
+
+/* challenges */
+.chal { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.chal h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.chal h3 .no { color: var(--accent); font-variant-numeric: tabular-nums; }
+.chal p { margin: 0 0 8px; font-size: 13.5px; }
+.chal details { font-size: 13px; color: var(--ink); }
+.chal details summary { cursor: pointer; color: var(--muted); }
+.chal details div { margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--env); }
+.chal.active { border-color: var(--accent); }
+.chal button { font-size: 13px; padding: 4px 10px; min-height: 30px; }
+
+#compareOut { margin-top: 10px; }
+#compareOut td.best { font-weight: 600; color: var(--accent); }
+.note { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.tabs { display: flex; gap: 4px; padding: 10px 12px 0; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 10px; color: var(--muted); min-height: 34px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 500; }
+.tabpanel[hidden] { display: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+footer { max-width: 1320px; margin: 0 auto; padding: 0 24px 30px; color: var(--muted); font-size: 12.5px; }
+.panel > h2 { display: flex; align-items: center; }
+.chal details + details { margin-top: 4px; }
+:root { --maxw: 1320px; }
+/* ---------- help kit: quick start, info tips, help drawer ---------- */
+.helpbtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.helpbtn .q { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--panel); display: inline-grid; place-items: center; font-weight: 600; font-size: 13px; }
+.info { width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 11px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; cursor: pointer; vertical-align: 1px; margin-left: 6px; flex: none; text-transform: none; letter-spacing: 0; }
+.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); }
+.tip { position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13.5px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin-bottom: 0; }
+.tip b { font-weight: 600; }
+.tip code { font-size: 12.5px; }
+.quick { max-width: var(--maxw); margin: 0 auto 4px; padding: 0 24px; }
+.quick .in { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px 10px 14px; font-size: 14px; }
+.quick .lead { font-weight: 600; }
+.quick ol { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; counter-reset: q; flex: 1; }
+.quick li { counter-increment: q; display: flex; gap: 7px; align-items: baseline; }
+.quick li::before { content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.quick .x { margin-left: auto; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); min-height: 28px; padding: 0 4px; }
+.quick .more { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+@media (max-width: 980px) { .quick { padding: 0 16px; } }
+@media (max-width: 700px) { .quick .lead { order: 0; } .quick .x { order: 1; } .quick ol { order: 2; flex-basis: 100%; flex-direction: column; } .quick .more { order: 3; } }
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(560px, 100vw); max-width: 100vw; border: 0; border-left: 1px solid var(--line); padding: 0; background: var(--panel); color: var(--ink); }
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer .dh { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
+dialog.drawer .dh h2 { margin: 0; font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); padding: 0; }
+dialog.drawer .dh button { margin-left: auto; }
+dialog.drawer .db { padding: 6px 18px 28px; font-size: 14.5px; }
+dialog.drawer details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+dialog.drawer summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+dialog.drawer details > div { padding-top: 8px; }
+dialog.drawer p { margin: 0 0 8px; }
+dialog.drawer ul { margin: 0 0 8px; padding-left: 18px; } dialog.drawer li { margin: 3px 0; }
+dialog.drawer table { font-size: 13.5px; }
+dialog.drawer pre { background: var(--code-bg, var(--chip)); padding: 8px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+kbd { font-family: "Fira Mono", ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+
+/* expanded code editor */
+.edbtn { display: inline-flex; align-items: center; gap: 6px; }
+dialog.editor { width: min(1200px, calc(100vw - 32px)); height: min(860px, calc(100vh - 32px)); max-width: none; max-height: none; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+dialog.editor[open] { display: flex; flex-direction: column; }
+dialog.editor::backdrop { background: rgba(0,0,0,.45); }
+.editor .eh { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.editor .eh h2 { margin: 0; font-size: 17px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.editor .eh .keys { font-size: 12.5px; color: var(--muted); margin-right: auto; }
+.editor .ebody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+@media (max-width: 860px) { .editor .ebody { grid-template-columns: minmax(0, 1fr); } .editor .api { display: none; } }
+.editor .pane { display: flex; min-height: 0; background: var(--code-bg); }
+.editor .gutter { margin: 0; padding: 14px 8px 14px 12px; text-align: right; color: var(--muted); user-select: none; overflow: hidden; font: 15px/1.55 "Fira Mono", ui-monospace, Menlo, Consolas, monospace; min-width: 44px; border-right: 1px solid var(--line); }
+.editor .hl-big { flex: 1; min-width: 0; }
+.editor .hl-big > pre.hl, .editor .hl-big > textarea { font-size: 15px; line-height: 1.55; padding: 14px; border: 0; }
+.editor .hl-big > textarea { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; resize: none; overflow: auto; }
+.editor .api { border-left: 1px solid var(--line); padding: 12px 16px; overflow: auto; font-size: 13.5px; }
+.editor .api h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
+.editor .api h3:first-child { margin-top: 0; }
+.editor .api p { margin: 0 0 6px; }
+.editor .api code { font-size: 12.5px; }
+.editor .ef { padding: 8px 16px; border-top: 1px solid var(--line); min-height: 38px; }
+.editor .ef .msg { margin: 0; }
+.home { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: -6px; }
+.home:hover, .home:focus-visible { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="index.html">← All tools</a>
+  <h1>Vacuum World <span>Lab</span></h1>
+  <p>Sensors, agent programs and performance measures: try them, break them, compare them.</p>
+  <button class="helpbtn" data-open-help="" aria-haspopup="dialog"><span class="q">?</span>Help</button>
+</header>
+<div class="quick" id="quick" hidden><div class="in">
+  <span class="lead">Quick start</span>
+  <ol>
+    <li><span>Pick a <b>challenge</b> on the right and press <b>Set up</b>.</span></li>
+    <li><span><b>Run</b> or <b>Step</b> it. Watch the percept, the action and the scores.</span></li>
+    <li><span>Explain what you saw, then open <b>What to notice</b> and test your idea with <b>Compare all agents</b>.</span></li>
+  </ol>
+  <button class="more">Full guide</button>
+  <button class="x" aria-label="Hide quick start">×</button>
+</div></div>
+
+<main>
+  <div class="stack">
+    <section class="panel" aria-label="World">
+      <div id="worldWrap"><svg id="world" viewBox="0 0 600 200" role="img" aria-label="Vacuum world"></svg></div>
+      <div class="percept-row">
+        <div class="kv"><span class="k">t</span><span class="v" id="tVal">0</span></div>
+        <div class="kv"><span class="k">Percept<button data-tip="percept" aria-label="What is the percept?"></button></span><span class="v" id="perceptVal">–</span></div>
+        <div class="kv"><span class="k">Action</span><span class="v act" id="actionVal">–</span></div>
+        <div class="kv"><span class="k">Bag<button data-tip="bag" aria-label="What is the bag?"></button></span><span class="v" id="bagVal">0</span></div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="btnRun">Run</button>
+        <button id="btnStep">Step</button>
+        <button id="btnFinish">Run to end</button>
+        <button id="btnReset">Reset</button>
+        <label class="speed">Speed <input type="range" id="speed" min="1" max="60" value="8" aria-label="Steps per second"></label>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Performance">
+      <h2>Performance measures<button data-tip="measures" aria-label="About performance measures"></button></h2>
+      <div class="body">
+        <div class="scores" id="scores"></div>
+        <svg id="chart" viewBox="0 0 600 150" preserveAspectRatio="none" aria-label="Cumulative score of the selected measure"></svg>
+        <div class="note" id="lifeNote"></div>
+      </div>
+    </section>
+
+    <div class="two">
+      <section class="panel" aria-label="Agent internals">
+        <h2>Inside the agent<button data-tip="internal" aria-label="About the agent's internal state"></button></h2>
+        <div class="body">
+          <div id="memo"></div>
+          <div id="belief"></div>
+          <pre class="mem" id="memDump" hidden></pre>
+        </div>
+      </section>
+      <section class="panel" aria-label="Recent steps">
+        <h2>Recent steps<button data-tip="log" aria-label="How to read the log"></button></h2>
+        <div class="body tablewrap">
+          <table id="log"><thead><tr><th>t</th><th>percept</th><th>action</th><th class="num" id="logMeasure">Δ</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" aria-label="Compare agents">
+      <h2>Compare agents<button data-tip="compare" aria-label="How to read the comparison"></button></h2>
+      <div class="body">
+        <p style="margin:0 0 8px;font-size:14px">Runs every built-in agent (and your custom rules) in the <b>current</b> world settings, averaged over 20 random worlds, and scores each run with all three measures.</p>
+        <button id="btnCompare">Compare all agents</button>
+        <div id="compareOut" class="tablewrap"></div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="stack">
+    <section class="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" aria-controls="tabSetup" id="tbSetup">Setup</button>
+        <button role="tab" aria-selected="false" aria-controls="tabAgent" id="tbAgent">Agent program</button>
+        <button role="tab" aria-selected="false" aria-controls="tabChal" id="tbChal">Challenges</button>
+      </div>
+
+      <div class="tabpanel body" id="tabSetup" role="tabpanel" aria-labelledby="tbSetup">
+        <div class="field">
+          <label for="agentSel">Agent<button data-tip="agents" aria-label="About the agents"></button></label>
+          <select id="agentSel"></select>
+          <div class="hint" id="agentHint"></div>
+        </div>
+        <div class="field">
+          <span class="lab">Performance measure (what counts as success)</span>
+          <div class="seg" role="radiogroup" id="measureSeg"></div>
+          <div class="hint" id="measureHint"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="nSel">Squares</label>
+            <select id="nSel"><option value="2">2 (A, B)</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+          <div class="field"><label for="startSel">Start square</label>
+            <select id="startSel"><option value="A">A (leftmost)</option><option value="random">random</option></select></div>
+        </div>
+        <div class="field">
+          <span class="lab">Sensors<button data-tip="sensors" aria-label="About sensors"></button></span>
+          <label class="check"><input type="checkbox" id="locSensor" checked> <span>Location sensor <span class="hint" style="display:block;margin:0">Without it the percept is only <code>[Dirty]</code> or <code>[Clean]</code>.</span></span></label>
+          <label class="check"><input type="checkbox" checked disabled> <span>Dirt sensor (current square only)</span></label>
+        </div>
+        <div class="field">
+          <label for="regrow">Dirt reappears: <b id="regrowVal">0%</b> per clean square per step<button data-tip="regrow" aria-label="About dirt reappearing"></button></label>
+          <input type="range" id="regrow" min="0" max="20" step="1" value="0">
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="dumpOk"> <span>Allow the <code>Dump</code> action (empty the dust bag onto the floor)</span></label>
+        </div>
+        <div class="row">
+          <div class="field"><label for="steps">Lifetime (steps)<button data-tip="lifetime" aria-label="About lifetime"></button></label><input type="number" id="steps" min="10" max="5000" step="10" value="1000"></div>
+          <div class="field"><label for="seed">Random seed<button data-tip="seed" aria-label="About the random seed"></button></label><input type="number" id="seed" min="0" max="999999" value="42"></div>
+        </div>
+        <div class="field" id="staleField">
+          <label for="stale">Model-based agent: re-check a square after <b id="staleVal">never</b><button data-tip="stale" aria-label="About re-checking"></button></label>
+          <input type="range" id="stale" min="0" max="50" step="1" value="0">
+          <div class="hint">Part of the designer's built-in knowledge: how stale the agent's belief may get before it goes to look again.</div>
+        </div>
+        <button id="btnShare" style="width:100%">Copy link to this setup</button>
+        <div class="msg ok" id="shareMsg" aria-live="polite"></div>
+      </div>
+
+      <div class="tabpanel body" id="tabAgent" role="tabpanel" aria-labelledby="tbAgent" hidden>
+        <div class="field">
+          <span class="lab">Custom rules: condition–action (first match wins)<button data-tip="rules" aria-label="How rules work"></button></span>
+          <div class="rulehead"><span></span><span>location</span><span>status</span><span>action</span><span></span></div>
+          <div id="rules"></div>
+          <div class="row" style="margin-top:6px"><button id="addRule">+ Add rule</button><button id="useRules" class="primary">Use these rules</button></div>
+          <div class="hint">A simple reflex agent: it sees only the current percept. Rules that test the location never fire when the location sensor is off.</div>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+        <div class="field">
+          <label for="code">Custom JavaScript agent (any architecture)<button data-tip="jsapi" aria-label="How to write the agent function"></button></label>
+          <div class="hl-wrap hl-small"><pre class="hl" id="codeHl" aria-hidden="true"></pre><textarea id="code" class="code" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off"></textarea></div>
+          <div class="row" style="margin-top:6px"><button id="loadCode" class="primary">Load &amp; use this code</button><button id="resetCode">Restore example</button></div>
+          <button id="expandCode" class="edbtn" style="width:100%;margin-top:6px" aria-haspopup="dialog">⤢ Open large editor</button>
+          <div class="msg" id="codeMsg" aria-live="polite"></div>
+          <div class="hint">Runs in a sandboxed Web Worker; a step that takes longer than 0.5 s is stopped (infinite loop protection). <code>memory</code> persists between steps: that is your internal state.</div>
+        </div>
+      </div>
+
+      <div class="tabpanel body" id="tabChal" role="tabpanel" aria-labelledby="tbChal" hidden>
+        <div id="challenges"></div>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<dialog class="drawer" id="help" aria-labelledby="helpTitle">
+  <div class="dh"><h2 id="helpTitle">How to use Vacuum World Lab</h2><button class="close">Close</button></div>
+  <div class="db">
+    <details open data-s="what"><summary>What is this for?</summary><div>
+      <p>A tiny world from Russell &amp; Norvig, ch. 2: a few squares that can be dirty and a robot vacuum. You decide what the robot can <b>sense</b>, how the <b>world behaves</b> and how <b>success is measured</b>, then watch different agent programs live in it.</p>
+      <p>The goal is not to clean well. The goal is to see <b>why</b> an agent is rational in one environment and irrational in another.</p>
+    </div></details>
+    <details data-s="workflow"><summary>A good way to work</summary><div>
+      <ol>
+        <li><b>Set up</b> a challenge (Challenges tab), or change one setting yourself.</li>
+        <li><b>Predict</b> before you run: what will the agent do? Which score will be high?</li>
+        <li><b>Run</b> slowly or <b>Step</b> through it, then <b>Run to end</b> for the final score.</li>
+        <li><b>Explain</b> the result in terms of percepts, internal state and the measure. Use the <b>Hint</b> if you are stuck, then <b>What to notice</b>.</li>
+        <li><b>Change one thing at a time</b> and use <b>Compare all agents</b> to test your explanation.</li>
+      </ol>
+    </div></details>
+    <details data-s="screen"><summary>What is on the screen</summary><div>
+      <ul>
+        <li><b>World</b>: the true state (squares, dirt, robot). The agent never sees this picture.</li>
+        <li><b>Percept / Action</b>: what the agent sensed this step and what it decided.</li>
+        <li><b>Performance measures</b>: three scores of the same run; the highlighted one is the measure you selected. The chart shows it over time.</li>
+        <li><b>Inside the agent</b>: its internal state (if it has any).</li>
+        <li><b>Recent steps</b>: the last 12 percept → action pairs, newest on top.</li>
+        <li><b>Compare agents</b>: all agents on the same 20 worlds.</li>
+      </ul>
+      <p>Every <button data-tip="demo" aria-label="Example info button"></button> button explains the element next to it.</p>
+    </div></details>
+    <details data-s="controls"><summary>Controls and shortcuts</summary><div>
+      <ul>
+        <li><b>Run / Pause</b>: <kbd>Space</kbd>. <b>Step</b> one action: <kbd>→</kbd>. <b>Run to end</b>: finish the lifetime instantly.</li>
+        <li><b>Reset</b>: same world again from the start (same seed).</li>
+        <li><b>Speed</b>: steps per second while running.</li>
+        <li><b>Copy link to this setup</b> (Setup tab): the address encodes all settings, so the link reproduces exactly this world.</li>
+        <li>This guide: <kbd>?</kbd>. Close it with <kbd>Esc</kbd>.</li>
+      </ul>
+    </div></details>
+    <details data-s="agents"><summary>The agents</summary><div>
+      <ul>
+        <li><b>Simple reflex</b>: reacts to the current percept only (Dirty → Suck, otherwise move).</li>
+        <li><b>Randomised reflex</b>: like reflex, but moves left or right at random on a clean square.</li>
+        <li><b>Model-based reflex</b>: keeps an internal map of what it believes about each square; can localise itself without a location sensor.</li>
+        <li><b>Dust recycler</b>: designed to exploit one particular measure.</li>
+        <li><b>Custom rules</b> and <b>Custom JavaScript</b>: your own agents (Agent program tab).</li>
+      </ul>
+    </div></details>
+    <details data-s="measures"><summary>The performance measures</summary><div>
+      <ul>
+        <li><b>Clean squares</b>: +1 for every clean square at every step (Russell &amp; Norvig's measure).</li>
+        <li><b>Dirt removed</b>: +1 each time dirt is sucked up.</li>
+        <li><b>Clean − moves</b>: clean squares minus 1 for each move (energy cost).</li>
+      </ul>
+      <p>The agents do not see the measure. Choosing it is <i>your</i> job as designer, and the same behaviour can be excellent under one measure and absurd under another.</p>
+    </div></details>
+    <details data-s="own"><summary>Writing your own agent</summary><div>
+      <p><b>Rules</b> build a simple reflex agent: checked top to bottom, the first matching rule wins, no match = NoOp.</p>
+      <p><b>JavaScript</b> can be any architecture. A model-based skeleton:</p>
+<pre>function agent(percept, memory) {
+  if (percept.status === 'Dirty') return 'Suck';
+  memory.t = (memory.t || 0) + 1;
+  // internal state: what you believe about the world
+  memory.seen = memory.seen || {};
+  if (percept.location) memory.seen[percept.location] = memory.t;
+  // ... decide where to go using memory
+  return 'Right';
+}</pre>
+      <p>Errors and infinite loops are reported under the editor; nothing breaks the page.</p>
+    </div></details>
+    <details data-s="terms"><summary>Key terms</summary><div>
+      <ul>
+        <li><b>Percept</b>: what the sensors deliver at one moment. <b>Percept sequence</b>: everything perceived so far.</li>
+        <li><b>Agent function</b>: maps percept sequences to actions. <b>Agent program</b>: its implementation (what runs here).</li>
+        <li><b>Internal state</b>: what the program remembers between steps.</li>
+        <li><b>Performance measure</b>: evaluates the sequence of world states the agent causes.</li>
+        <li><b>Rational agent</b>: chooses the action expected to maximise the performance measure, given its percepts and built-in knowledge.</li>
+      </ul>
+    </div></details>
+  </div>
+</dialog>
+
+<dialog class="editor" id="editorDlg" aria-labelledby="edTitle">
+  <div class="eh">
+    <h2 id="edTitle">Custom JavaScript agent</h2>
+    <span class="keys"><kbd>Tab</kbd> indent · <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> load · <kbd>Esc</kbd> close</span>
+    <button id="edReset">Restore example</button>
+    <button id="edLoad" class="primary">Load &amp; use this code</button>
+    <button id="edClose">Close</button>
+  </div>
+  <div class="ebody">
+    <div class="pane"><pre class="gutter" id="edGutter" aria-hidden="true">1</pre><div class="hl-wrap hl-big"><pre class="hl" id="edHl" aria-hidden="true"></pre><textarea id="edCode" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" aria-label="Agent code"></textarea></div></div>
+    <div class="api">
+      <h3>Your function</h3>
+      <p><code>function agent(percept, memory)</code> is called once per step and must <b>return the action</b>.</p>
+      <h3>percept</h3>
+      <p><code>percept.location</code>: <code>'A'</code>…<code>'E'</code>, or <code>null</code> when the location sensor is off.</p>
+      <p><code>percept.status</code>: <code>'Dirty'</code> or <code>'Clean'</code>.</p>
+      <h3>memory</h3>
+      <p>An object that survives between steps: your <b>internal state</b>. Store anything JSON-like in it. <b>Reset</b> clears it. Its content is shown in ‘Inside the agent’.</p>
+      <h3>Actions</h3>
+      <p><code>'Left'</code>, <code>'Right'</code>, <code>'Suck'</code>, <code>'NoOp'</code>, <code>'Dump'</code> (only if allowed in Setup).</p>
+      <h3>Facts you may use</h3>
+      <p>Squares are in a row, A on the left. Moving into a wall leaves you where you are. You do not get the number of squares as a percept: that is designer knowledge you may hard-code.</p>
+      <h3>Debugging</h3>
+      <p>Errors appear below. Use <b>Step</b> (<kbd>→</kbd>) and watch ‘Inside the agent’ to see your memory change. A step longer than 0.5 s is stopped.</p>
+    </div>
+  </div>
+  <div class="ef"><div class="msg" id="edMsg" aria-live="polite"></div></div>
+</dialog>
+<footer>AI Agents in Practice · SWPS University · based on Russell &amp; Norvig, <i>Artificial Intelligence: A Modern Approach</i>, ch. 2.</footer>
+
+<script>
+"use strict";
+/* ============================================================ utilities */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const LETTERS = "ABCDE";
+const $ = (id) => document.getElementById(id);
+const ACTIONS = ["Left", "Right", "Suck", "NoOp", "Dump"];
+
+/* ============================================================ measures */
+const MEASURES = {
+  clean: { name: "Clean squares", short: "clean", hint: "+1 for every clean square at every time step (Russell & Norvig's choice)." },
+  dirt:  { name: "Dirt removed", short: "dirt", hint: "+1 every time dirt is sucked up. Sounds sensible…" },
+  moves: { name: "Clean − moves", short: "clean−moves", hint: "+1 per clean square per step, −1 for every Left/Right move (energy cost)." },
+};
+
+/* ============================================================ environment */
+class World {
+  constructor(cfg) {
+    this.cfg = cfg;
+    this.n = cfg.n;
+    this.rng = mulberry32(cfg.seed * 7919 + 13);
+    this.dirty = [];
+    for (let i = 0; i < this.n; i++) this.dirty.push(this.rng() < 0.5);
+    this.pos = cfg.start === "random" ? Math.floor(this.rng() * this.n) : 0;
+    this.bag = 0;
+    this.t = 0;
+    this.score = { clean: 0, dirt: 0, moves: 0 };
+  }
+  percept() {
+    return { location: this.cfg.loc ? LETTERS[this.pos] : null, status: this.dirty[this.pos] ? "Dirty" : "Clean" };
+  }
+  step(action) {
+    let moved = false, sucked = false, note = "";
+    if (action === "Suck") {
+      if (this.dirty[this.pos]) { this.dirty[this.pos] = false; this.bag++; sucked = true; }
+    } else if (action === "Left" || action === "Right") {
+      moved = true;
+      const np = this.pos + (action === "Left" ? -1 : 1);
+      if (np < 0 || np >= this.n) note = "bump"; else this.pos = np;
+    } else if (action === "Dump") {
+      if (!this.cfg.dump) note = "not allowed";
+      else if (this.bag > 0 && !this.dirty[this.pos]) { this.dirty[this.pos] = true; this.bag--; }
+      else note = this.bag === 0 ? "bag empty" : "already dirty";
+    }
+    // dirt reappears: one draw per square per step (keeps the random stream agent-independent)
+    for (let i = 0; i < this.n; i++) {
+      const r = this.rng();
+      if (!this.dirty[i] && r < this.cfg.regrow) this.dirty[i] = true;
+    }
+    const clean = this.dirty.filter((d) => !d).length;
+    const d = { clean: clean, dirt: sucked ? 1 : 0, moves: clean - (moved ? 1 : 0) };
+    for (const k in d) this.score[k] += d[k];
+    this.t++;
+    return { delta: d, note };
+  }
+}
+
+/* ============================================================ agents */
+function pick(rng) { return rng() < 0.5 ? "Left" : "Right"; }
+
+const AGENTS = {
+  reflex: {
+    name: "Simple reflex agent",
+    hint: "If dirty → Suck. Otherwise move: A → Right, last square → Left, squares in between → Right. With no location sensor: always Left.",
+    make: (cfg) => ({
+      act(p) {
+        if (p.status === "Dirty") return "Suck";
+        if (p.location === null) return "Left";
+        const i = LETTERS.indexOf(p.location);
+        if (i === cfg.n - 1) return "Left";
+        return "Right";
+      },
+    }),
+  },
+  random: {
+    name: "Randomised reflex agent",
+    hint: "If dirty → Suck, otherwise flip a coin: Left or Right. Ignores location.",
+    make: (cfg) => {
+      const rng = mulberry32(cfg.seed * 31 + 7);
+      return { act(p) { return p.status === "Dirty" ? "Suck" : pick(rng); } };
+    },
+  },
+  model: {
+    name: "Model-based reflex agent",
+    hint: "Keeps an internal map of what it believes about each square. Without a location sensor it first localises itself by bumping into the left wall.",
+    make: (cfg) => {
+      const s = {
+        pos: null, lefts: 0, last: null,
+        belief: Array.from({ length: cfg.n }, () => ({ status: "unknown", seen: -1 })),
+      };
+      let t = 0;
+      return {
+        state: s,
+        act(p) {
+          // UPDATE-STATE(state, last action, percept, transition model, sensor model)
+          if (s.pos !== null && p.location === null) {
+            if (s.last === "Left") s.pos = Math.max(0, s.pos - 1);
+            if (s.last === "Right") s.pos = Math.min(cfg.n - 1, s.pos + 1);
+          }
+          if (p.location !== null) s.pos = LETTERS.indexOf(p.location);
+          if (s.pos === null && s.lefts >= cfg.n - 1) s.pos = 0;
+          if (s.pos !== null) s.belief[s.pos] = { status: p.status === "Dirty" ? "dirty" : "clean", seen: t };
+          // RULE-MATCH
+          let a;
+          if (p.status === "Dirty") a = "Suck";
+          else if (s.pos === null) { s.lefts++; a = "Left"; }
+          else {
+            const targets = [];
+            s.belief.forEach((b, i) => {
+              const stale = cfg.stale > 0 && b.status === "clean" && t - b.seen >= cfg.stale;
+              if (b.status !== "clean" || stale) targets.push(i);
+            });
+            const others = targets.filter((i) => i !== s.pos);
+            if (others.length === 0) a = "NoOp";
+            else {
+              let best = others[0];
+              for (const i of others) if (Math.abs(i - s.pos) < Math.abs(best - s.pos)) best = i;
+              a = best < s.pos ? "Left" : "Right";
+            }
+          }
+          if (a === "Suck" && s.pos !== null) s.belief[s.pos] = { status: "clean", seen: t };
+          s.last = a; t++;
+          return a;
+        },
+      };
+    },
+  },
+  recycler: {
+    name: "Dust recycler",
+    hint: "If dirty → Suck. If clean and its bag is not empty → Dump it back onto the floor. Otherwise move like the reflex agent. Built to win one particular measure.",
+    make: (cfg) => {
+      let bag = 0; // the agent knows its own bag: internal state
+      return {
+        act(p) {
+          if (p.status === "Dirty") { bag++; return "Suck"; }
+          if (cfg.dump && bag > 0) { bag--; return "Dump"; }
+          if (p.location === null) return "Left";
+          return LETTERS.indexOf(p.location) === cfg.n - 1 ? "Left" : "Right";
+        },
+      };
+    },
+  },
+  rules: {
+    name: "Custom rules",
+    hint: "Your own condition–action rules (tab ‘Agent program’).",
+    make: (cfg) => {
+      const rng = mulberry32(cfg.seed * 17 + 3);
+      return {
+        act(p) {
+          for (const r of state.rules) {
+            if (r.loc !== "any" && r.loc !== p.location) continue;
+            if (r.status !== "any" && r.status !== p.status) continue;
+            return r.action === "Random" ? pick(rng) : r.action;
+          }
+          return "NoOp";
+        },
+      };
+    },
+  },
+  js: {
+    name: "Custom JavaScript",
+    hint: "Your own program from the ‘Agent program’ tab. Load it there first.",
+    make: () => jsAgent(),
+  },
+};
+
+/* ------------------------------------------------------------ custom JS agent in a worker */
+const EXAMPLE_CODE = `// percept: { location: 'A' | 'B' | ... | null, status: 'Dirty' | 'Clean' }
+//   location is null when the location sensor is switched off
+// memory: an object that persists between steps (your internal state)
+// return one of: 'Left', 'Right', 'Suck', 'NoOp', 'Dump'
+
+function agent(percept, memory) {
+  memory.steps = (memory.steps || 0) + 1;
+  if (percept.status === 'Dirty') return 'Suck';
+
+  // remember which squares we have seen clean
+  if (percept.location) {
+    memory.clean = memory.clean || {};
+    memory.clean[percept.location] = memory.steps;
+  }
+  return percept.location === 'A' ? 'Right' : 'Left';
+}`;
+
+const WORKER_SRC = `
+let fn = null, memory = {};
+function clone(o){ try { return JSON.parse(JSON.stringify(o)); } catch(e){ return {"(not serialisable)": true}; } }
+onmessage = (e) => {
+  const m = e.data;
+  if (m.type === 'init') {
+    try { fn = new Function(m.code + '\\n;return (typeof agent === "function") ? agent : null;')();
+      if (!fn) throw new Error('No function named agent was defined.');
+      memory = {}; postMessage({type:'ok'}); }
+    catch (err) { postMessage({type:'error', msg: String(err && err.message || err)}); }
+  } else if (m.type === 'reset') { memory = {}; postMessage({type:'ok'}); }
+  else if (m.type === 'act') {
+    try { const a = fn(m.percept, memory); postMessage({type:'action', action: a, memory: clone(memory)}); }
+    catch (err) { postMessage({type:'error', msg: String(err && err.message || err)}); }
+  }
+};`;
+
+let worker = null, workerReady = false;
+/* Fallback when Web Workers are blocked (e.g. a sandboxed preview frame):
+   run the code in the page, with a time guard injected into every braced for/while/do loop. */
+let inlineMode = false, inlineFn = null, inlineMem = {}, guardDeadline = 0;
+function __vwGuard() { if (Date.now() > guardDeadline) throw new Error("__vw_timeout__"); }
+function instrument(code) {
+  let out = "", i = 0;
+  const n = code.length;
+  while (i < n) {
+    const c = code[i];
+    // skip comments and strings
+    if (c === "/" && code[i + 1] === "/") { const j = code.indexOf("\n", i); const e = j < 0 ? n : j; out += code.slice(i, e); i = e; continue; }
+    if (c === "/" && code[i + 1] === "*") { const j = code.indexOf("*/", i + 2); const e = j < 0 ? n : j + 2; out += code.slice(i, e); i = e; continue; }
+    if (c === "'" || c === '"' || c === "`") {
+      let j = i + 1; while (j < n && code[j] !== c) { if (code[j] === "\\") j++; j++; }
+      out += code.slice(i, j + 1); i = j + 1; continue;
+    }
+    const m = /^(for|while|do)\b/.exec(code.slice(i, i + 6));
+    const prev = i > 0 ? code[i - 1] : " ";
+    if (m && !/[\w$.]/.test(prev)) {
+      const kw = m[1];
+      let j = i + kw.length;
+      if (kw !== "do") {
+        while (j < n && /\s/.test(code[j])) j++;
+        if (code[j] === "(") {
+          let depth = 0;
+          for (; j < n; j++) { if (code[j] === "(") depth++; else if (code[j] === ")") { depth--; if (depth === 0) { j++; break; } } }
+        }
+      }
+      let k = j; while (k < n && /\s/.test(code[k])) k++;
+      if (code[k] === "{") { out += code.slice(i, k + 1) + "__vwGuard();"; i = k + 1; continue; }
+      out += code.slice(i, j); i = j; continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+function cloneMem(o) { try { return JSON.parse(JSON.stringify(o)); } catch (e) { return { "(not serialisable)": true }; } }
+function startInline(code) {
+  inlineMode = true;
+  const f = new Function("__vwGuard", instrument(code) + '\n;return (typeof agent === "function") ? agent : null;')(__vwGuard);
+  if (!f) throw new Error("No function named agent was defined.");
+  inlineFn = f; inlineMem = {}; workerReady = true;
+  return "inline";
+}
+function startWorker(code) {
+  if (worker) worker.terminate();
+  worker = null; workerReady = false; inlineMode = false; inlineFn = null;
+  try {
+    const url = URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" }));
+    worker = new Worker(url);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    worker = null;
+    try { return Promise.resolve(startInline(code)); } catch (err) { return Promise.reject(err); }
+  }
+  return callWorker({ type: "init", code }, 1500).then(() => { workerReady = true; return "worker"; }, (err) => {
+    if (err && err.workerFailed) { worker = null; return startInline(code); }
+    throw err;
+  });
+}
+function callWorker(msg, timeout = 500) {
+  if (inlineMode) {
+    if (msg.type === "reset") { inlineMem = {}; return Promise.resolve({ type: "ok" }); }
+    if (msg.type === "act") {
+      if (!inlineFn) return Promise.reject(new Error("No code loaded yet."));
+      guardDeadline = Date.now() + timeout;
+      try {
+        const a = inlineFn({ ...msg.percept }, inlineMem);
+        return Promise.resolve({ type: "action", action: a, memory: cloneMem(inlineMem) });
+      } catch (err) {
+        if (err && err.message === "__vw_timeout__") {
+          inlineFn = null; workerReady = false;
+          return Promise.reject(new Error("Your agent took longer than " + timeout / 1000 + " s for one step (infinite loop?). Code unloaded."));
+        }
+        return Promise.reject(new Error(String((err && err.message) || err)));
+      }
+    }
+    return Promise.resolve({ type: "ok" });
+  }
+  return new Promise((resolve, reject) => {
+    if (!worker) return reject(new Error("No code loaded yet."));
+    const timer = setTimeout(() => {
+      worker.terminate(); worker = null; workerReady = false;
+      reject(new Error("Your agent took longer than " + timeout / 1000 + " s for one step (infinite loop?). Code unloaded."));
+    }, timeout);
+    worker.onmessage = (e) => {
+      clearTimeout(timer);
+      if (e.data.type === "error") reject(new Error(e.data.msg));
+      else resolve(e.data);
+    };
+    worker.onerror = (e) => {
+      clearTimeout(timer);
+      if (e && e.preventDefault) e.preventDefault();
+      const err = new Error("The Web Worker could not start."); err.workerFailed = true; reject(err);
+    };
+    try { worker.postMessage(msg); } catch (e) { clearTimeout(timer); const err = new Error(String(e)); err.workerFailed = true; reject(err); }
+  });
+}
+function jsAgent() {
+  const ag = {
+    memory: {},
+    async act(p) {
+      if (!workerReady) throw new Error("Load your code first (tab ‘Agent program’).");
+      const r = await callWorker({ type: "act", percept: p });
+      ag.memory = r.memory;
+      if (!ACTIONS.includes(r.action)) throw new Error("agent() returned " + JSON.stringify(r.action) + "; expected one of " + ACTIONS.join(", ") + ".");
+      return r.action;
+    },
+    async reset() { if (workerReady) await callWorker({ type: "reset" }); ag.memory = {}; },
+  };
+  return ag;
+}
+
+/* ============================================================ state */
+const DEFAULT = { agent: "reflex", measure: "clean", n: 2, start: "A", loc: 1, regrow: 0, dump: 0, steps: 1000, seed: 42, stale: 0 };
+const DEFAULT_RULES = [
+  { loc: "any", status: "Dirty", action: "Suck" },
+  { loc: "A", status: "Clean", action: "Right" },
+  { loc: "B", status: "Clean", action: "Left" },
+];
+const state = {
+  cfg: { ...DEFAULT },
+  rules: DEFAULT_RULES.map((r) => ({ ...r })),
+  world: null, agent: null,
+  history: [], log: [], running: false, busy: false, timer: null, lastPercept: null, lastAction: null,
+  challenge: null,
+};
+
+/* ------------------------------------------------------------ URL hash */
+function encodeRules(rules) { return rules.map((r) => [r.loc, r.status[0], r.action].join(".")).join("_"); }
+function decodeRules(s) {
+  const st = { a: "any", D: "Dirty", C: "Clean" };
+  return s.split("_").map((x) => {
+    const [loc, s1, action] = x.split(".");
+    return { loc: loc === "any" || LETTERS.includes(loc) ? loc : "any", status: st[s1] || "any", action: [...ACTIONS, "Random"].includes(action) ? action : "NoOp" };
+  });
+}
+function writeHash() {
+  const c = state.cfg, parts = [];
+  for (const k in DEFAULT) if (c[k] !== DEFAULT[k]) parts.push(k + "=" + c[k]);
+  if (encodeRules(state.rules) !== encodeRules(DEFAULT_RULES)) parts.push("rules=" + encodeRules(state.rules));
+  const h = parts.length ? "#" + parts.join("&") : "";
+  try { history.replaceState(null, "", location.pathname + location.search + h); } catch (e) { /* file:// in some browsers */ }
+}
+function readHash() {
+  const h = location.hash.slice(1);
+  if (!h) return;
+  for (const kv of h.split("&")) {
+    const [k, v] = kv.split("=");
+    if (k === "rules") { try { state.rules = decodeRules(decodeURIComponent(v)); } catch (e) {} continue; }
+    if (!(k in DEFAULT)) continue;
+    state.cfg[k] = typeof DEFAULT[k] === "number" ? Number(v) : v;
+  }
+  sanitize();
+}
+function sanitize() {
+  const c = state.cfg;
+  c.n = Math.min(5, Math.max(2, Math.round(c.n) || 2));
+  c.steps = Math.min(5000, Math.max(10, Math.round(c.steps) || 1000));
+  c.seed = Math.max(0, Math.round(c.seed) || 0);
+  c.regrow = Math.min(0.2, Math.max(0, Number(c.regrow) || 0));
+  c.stale = Math.min(50, Math.max(0, Math.round(c.stale) || 0));
+  c.loc = c.loc ? 1 : 0; c.dump = c.dump ? 1 : 0;
+  if (!AGENTS[c.agent]) c.agent = "reflex";
+  if (!MEASURES[c.measure]) c.measure = "clean";
+  if (!["A", "random"].includes(c.start)) c.start = "A";
+}
+
+/* ============================================================ simulation */
+async function reset() {
+  stop();
+  state.world = new World(state.cfg);
+  state.agent = AGENTS[state.cfg.agent].make(state.cfg);
+  if (state.agent.reset) { try { await state.agent.reset(); } catch (e) {} }
+  state.history = [{ clean: 0, dirt: 0, moves: 0 }];
+  state.log = [];
+  state.lastPercept = state.world.percept();
+  state.lastAction = null;
+  render();
+}
+async function stepOnce() {
+  const w = state.world;
+  if (w.t >= state.cfg.steps) { stop(); return false; }
+  const p = w.percept();
+  let a;
+  try { a = await state.agent.act(p); }
+  catch (e) { stop(); showCodeMsg(e.message, true); selectTab("tbAgent"); return false; }
+  if (!ACTIONS.includes(a)) a = "NoOp";
+  const r = w.step(a);
+  state.history.push({ ...w.score });
+  state.log.unshift({ t: w.t - 1, p: fmtPercept(p), a: a + (r.note ? " (" + r.note + ")" : ""), d: r.delta[state.cfg.measure] });
+  if (state.log.length > 12) state.log.pop();
+  state.lastPercept = w.percept();
+  state.lastAction = a;
+  return true;
+}
+function fmtPercept(p) { return p.location === null ? "[" + p.status + "]" : "[" + p.location + ", " + p.status + "]"; }
+
+function speed() { return Number($("speed").value); }
+async function tick() {
+  if (!state.running || state.busy) return;
+  state.busy = true;
+  const ok = await stepOnce();
+  state.busy = false;
+  render();
+  if (ok && state.running) state.timer = setTimeout(tick, 1000 / speed());
+}
+function run() {
+  if (state.world.t >= state.cfg.steps) return;
+  state.running = true; $("btnRun").textContent = "Pause"; tick();
+}
+function stop() {
+  state.running = false; clearTimeout(state.timer);
+  const b = $("btnRun"); if (b) b.textContent = "Run";
+}
+async function finish() {
+  stop();
+  if (state.busy) return;
+  state.busy = true;
+  setButtons(true);
+  let n = 0;
+  while (state.world.t < state.cfg.steps) {
+    const ok = await stepOnce();
+    if (!ok) break;
+    if (++n % 250 === 0) { render(); await new Promise((r) => setTimeout(r, 0)); }
+  }
+  state.busy = false;
+  setButtons(false);
+  render();
+}
+function setButtons(dis) { for (const id of ["btnRun", "btnStep", "btnFinish", "btnReset", "btnCompare"]) $(id).disabled = dis; }
+
+/* ------------------------------------------------------------ compare */
+function runSync(agentKey, cfg) {
+  const w = new World(cfg);
+  const ag = AGENTS[agentKey].make(cfg);
+  while (w.t < cfg.steps) {
+    let a = ag.act(w.percept());
+    if (!ACTIONS.includes(a)) a = "NoOp";
+    w.step(a);
+  }
+  return w.score;
+}
+function compare() {
+  const keys = ["reflex", "random", "model", "recycler", "rules"];
+  const R = 20;
+  const rows = keys.map((k) => {
+    const sum = { clean: 0, dirt: 0, moves: 0 };
+    for (let i = 0; i < R; i++) {
+      const sc = runSync(k, { ...state.cfg, seed: state.cfg.seed + i });
+      for (const m in sum) sum[m] += sc[m] / R;
+    }
+    return { k, sum };
+  });
+  const best = {};
+  for (const m in MEASURES) best[m] = Math.max(...rows.map((r) => r.sum[m]));
+  let html = '<table><thead><tr><th>agent</th>';
+  for (const m in MEASURES) html += '<th class="num">' + MEASURES[m].name + (m === state.cfg.measure ? " ★" : "") + "</th>";
+  html += "</tr></thead><tbody>";
+  for (const r of rows) {
+    html += "<tr><td>" + AGENTS[r.k].name + "</td>";
+    for (const m in MEASURES) {
+      const v = r.sum[m];
+      html += '<td class="num' + (Math.abs(v - best[m]) < 1e-9 ? " best" : "") + '">' + fmtNum(v) + "</td>";
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+  const dumpNote = state.cfg.dump ? "" : " Dump is disabled in this world, so the dust recycler behaves like the simple reflex agent.";
+  const js = state.cfg.agent === "js" ? " Custom JavaScript is not included (it runs asynchronously; use ‘Run to end’)." : "";
+  html += '<div class="note">Average total score over ' + R + " worlds (seeds " + state.cfg.seed + "–" + (state.cfg.seed + R - 1) + "), lifetime " + state.cfg.steps + " steps. ★ = the measure currently selected. Bold = best in its column." + dumpNote + js + "</div>";
+  $("compareOut").innerHTML = html;
+}
+function fmtNum(v) { return Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : v.toFixed(1); }
+
+/* ============================================================ rendering */
+function render() {
+  renderWorld(); renderScores(); renderChart(); renderLog(); renderInternals();
+  $("tVal").textContent = state.world.t + " / " + state.cfg.steps;
+  $("perceptVal").textContent = fmtPercept(state.lastPercept);
+  $("actionVal").textContent = state.lastAction || "–";
+  $("bagVal").textContent = state.world.bag;
+  const done = state.world.t >= state.cfg.steps;
+  if (!state.busy) { $("btnStep").disabled = done; $("btnFinish").disabled = done; $("btnRun").disabled = done && !state.running; }
+}
+
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function renderWorld() {
+  const w = state.world, n = w.n;
+  const W = 600, pad = 10, cw = (W - 2 * pad) / n, ch = 170;
+  const svg = $("world");
+  svg.setAttribute("viewBox", "0 0 " + W + " " + (ch + 2 * pad));
+  let s = "";
+  const dirtPts = [[0, 0, 7], [16, 4, 5.5], [-14, 6, 6], [6, -12, 6], [-8, -10, 4.5], [22, -8, 4.5], [-22, -4, 4], [10, 14, 4.5]];
+  for (let i = 0; i < n; i++) {
+    const x = pad + i * cw;
+    s += '<rect x="' + x + '" y="' + pad + '" width="' + cw + '" height="' + ch + '" fill="' + css("--floor") + '" stroke="' + css("--ink") + '" stroke-width="1.5"/>';
+    s += '<text x="' + (x + 10) + '" y="' + (pad + 24) + '" font-size="20" font-weight="600" fill="' + css("--ink") + '" font-family="Fira Sans, sans-serif">' + LETTERS[i] + "</text>";
+    if (w.dirty[i]) {
+      const cx = x + cw / 2, cy = pad + ch - 38;
+      for (const [dx, dy, r] of dirtPts) s += '<circle cx="' + (cx + dx * 1.3) + '" cy="' + (cy + dy) + '" r="' + r + '" fill="' + css("--dirt") + '"/>';
+    }
+  }
+  const rx = pad + w.pos * cw + cw / 2, ry = pad + 70;
+  const lastA = state.lastAction;
+  s += '<g transform="translate(' + rx + "," + ry + ')">';
+  s += '<circle r="34" fill="' + css("--robot") + '"/><circle r="24" fill="' + css("--muted") + '" opacity=".55"/>';
+  s += '<circle cx="12" cy="-14" r="5" fill="#7fd3ff"/>';
+  s += '<rect x="-30" y="34" width="60" height="7" rx="2" fill="' + css("--accent") + '"/>';
+  if (lastA === "Suck") s += '<text y="-44" text-anchor="middle" font-size="14" fill="' + css("--accent") + '" font-family="Fira Sans, sans-serif">sucking…</text>';
+  if (lastA === "Dump") s += '<text y="-44" text-anchor="middle" font-size="14" fill="' + css("--accent") + '" font-family="Fira Sans, sans-serif">dumping…</text>';
+  s += "</g>";
+  svg.innerHTML = s;
+  svg.setAttribute("aria-label", "Vacuum world with " + n + " squares. Robot on " + LETTERS[w.pos] + ". Dirty squares: " + (w.dirty.map((d, i) => (d ? LETTERS[i] : null)).filter(Boolean).join(", ") || "none") + ".");
+}
+
+function renderScores() {
+  const w = state.world, t = Math.max(1, w.t);
+  let html = "";
+  for (const m in MEASURES) {
+    const sel = m === state.cfg.measure;
+    html += '<div class="score' + (sel ? " sel" : "") + '"><div class="name">' + MEASURES[m].name + (sel ? " · the agent's measure" : "") + '</div><div class="val">' + w.score[m] + '</div><div class="per">' + (w.score[m] / t).toFixed(2) + " per step</div></div>";
+  }
+  $("scores").innerHTML = html;
+  $("lifeNote").textContent = "Line: cumulative ‘" + MEASURES[state.cfg.measure].name + "’ over the agent's lifetime. Dashed line: the best possible rate (every square clean at every step).";
+}
+
+function renderChart() {
+  const h = state.history, m = state.cfg.measure, T = state.cfg.steps, n = state.cfg.n;
+  const W = 600, H = 150, pl = 4, pr = 4, pt = 8, pb = 6;
+  const ideal = m === "dirt" ? null : n * T;
+  const maxV = Math.max(1, ...h.map((x) => x[m]), ideal && h.length > 1 ? ideal * (h.length - 1) / T : 0);
+  const X = (i) => pl + (i / T) * (W - pl - pr);
+  const Y = (v) => H - pb - (v / maxV) * (H - pt - pb);
+  let s = '<line x1="' + pl + '" y1="' + (H - pb) + '" x2="' + (W - pr) + '" y2="' + (H - pb) + '" stroke="' + css("--line") + '"/>';
+  if (ideal !== null && h.length > 1) s += '<line x1="' + X(0) + '" y1="' + Y(0) + '" x2="' + X(h.length - 1) + '" y2="' + Y(n * (h.length - 1)) + '" stroke="' + css("--muted") + '" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>';
+  const step = Math.max(1, Math.floor(h.length / 600));
+  let pts = [];
+  for (let i = 0; i < h.length; i += step) pts.push(X(i).toFixed(1) + "," + Y(h[i][m]).toFixed(1));
+  pts.push(X(h.length - 1).toFixed(1) + "," + Y(h[h.length - 1][m]).toFixed(1));
+  s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + css("--accent") + '" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+  $("chart").innerHTML = s;
+}
+
+function renderLog() {
+  $("logMeasure").textContent = "Δ " + MEASURES[state.cfg.measure].short;
+  $("log").querySelector("tbody").innerHTML = state.log.map((r) => "<tr><td>" + r.t + "</td><td>" + r.p + "</td><td>" + r.a + '</td><td class="num">' + (r.d > 0 ? "+" : "") + r.d + "</td></tr>").join("") || '<tr><td colspan="4" style="font-family:inherit;color:var(--muted)">Press Step or Run.</td></tr>';
+}
+
+function renderInternals() {
+  const k = state.cfg.agent, ag = state.agent;
+  const memo = $("memo"), bel = $("belief"), dump = $("memDump");
+  bel.innerHTML = ""; dump.hidden = true;
+  if (k === "model") {
+    const s = ag.state;
+    memo.innerHTML = "Internal state (belief about each square)" + (s.pos === null ? ": <b>position unknown</b>, localising (" + s.lefts + " × Left so far)" : ": believes it is on <b>" + LETTERS[s.pos] + "</b>") + ".";
+    bel.innerHTML = s.belief.map((b, i) => '<div class="bcell ' + b.status + (s.pos === i ? " here" : "") + '"><div class="l">' + LETTERS[i] + "</div><div>" + (b.status === "unknown" ? "?" : b.status) + "</div><div>" + (b.seen >= 0 ? "t=" + b.seen : "&nbsp;") + "</div></div>").join("");
+  } else if (k === "js") {
+    memo.innerHTML = "Your agent's <code>memory</code> object:";
+    dump.hidden = false; dump.textContent = JSON.stringify(ag.memory || {}, null, 2);
+  } else if (k === "rules") {
+    memo.innerHTML = "No internal state: each action depends only on the <b>current percept</b>. Rules in use:";
+    dump.hidden = false; dump.textContent = state.rules.map((r, i) => (i + 1) + ". if location=" + r.loc + " and status=" + r.status + " → " + r.action).join("\n") || "(no rules: always NoOp)";
+  } else {
+    memo.innerHTML = "No internal state: each action depends only on the <b>current percept</b>.";
+  }
+}
+
+
+/* ------------------------------------------------------------ syntax highlighting (overlay) */
+const HL_KW = new Set("function return if else for while do const let var new break continue switch case default typeof instanceof in of true false null undefined this throw try catch finally delete void".split(" "));
+const HL_VARS = new Set(["percept", "memory", "Math", "JSON", "Object", "Array"]);
+const HL_ACTS = new Set(["'Left'", "'Right'", "'Suck'", "'NoOp'", "'Dump'", '"Left"', '"Right"', '"Suck"', '"NoOp"', '"Dump"', "'Dirty'", "'Clean'", '"Dirty"', '"Clean"']);
+const HL_RE = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|('(?:\\.|[^'\\\n])*'?|"(?:\\.|[^"\\\n])*"?|`(?:\\[\s\S]|[^`\\])*`?)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(?=(\s*\()?)/g;
+function hlEsc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function highlight(src) {
+  let out = "", last = 0, m;
+  HL_RE.lastIndex = 0;
+  while ((m = HL_RE.exec(src))) {
+    if (m[0] === "") { HL_RE.lastIndex++; continue; }
+    out += hlEsc(src.slice(last, m.index));
+    const t = hlEsc(m[0]);
+    let cls = "";
+    if (m[1]) cls = "c";
+    else if (m[2]) cls = HL_ACTS.has(m[2]) ? "a" : "s";
+    else if (m[3]) cls = "n";
+    else if (m[4]) cls = HL_KW.has(m[4]) ? "k" : HL_VARS.has(m[4]) ? "v" : m[5] !== undefined ? "f" : "";
+    out += cls ? '<span class="' + cls + '">' + t + "</span>" : t;
+    last = m.index + m[0].length;
+  }
+  return out + hlEsc(src.slice(last)) + "\n ";
+}
+function bindHighlight(ta, pre) {
+  const paint = () => { pre.innerHTML = highlight(ta.value); sync(); };
+  const sync = () => { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; };
+  ta.addEventListener("scroll", sync);
+  new ResizeObserver(sync).observe(ta);
+  return paint;
+}
+/* ============================================================ UI wiring */
+function buildSetup() {
+  const sel = $("agentSel");
+  sel.innerHTML = Object.entries(AGENTS).map(([k, a]) => '<option value="' + k + '">' + a.name + "</option>").join("");
+  $("measureSeg").innerHTML = Object.entries(MEASURES).map(([k, m]) => '<label><input type="radio" name="measure" value="' + k + '"><span>' + m.name + "</span></label>").join("");
+}
+function syncInputs() {
+  const c = state.cfg;
+  $("agentSel").value = c.agent;
+  $("agentHint").textContent = AGENTS[c.agent].hint;
+  for (const r of document.querySelectorAll('input[name=measure]')) r.checked = r.value === c.measure;
+  $("measureHint").textContent = MEASURES[c.measure].hint;
+  $("nSel").value = String(c.n);
+  $("startSel").value = c.start;
+  $("locSensor").checked = !!c.loc;
+  $("regrow").value = Math.round(c.regrow * 100);
+  $("regrowVal").textContent = Math.round(c.regrow * 100) + "%";
+  $("dumpOk").checked = !!c.dump;
+  $("steps").value = c.steps;
+  $("seed").value = c.seed;
+  $("stale").value = c.stale;
+  $("staleVal").textContent = c.stale === 0 ? "never" : c.stale + " steps";
+  renderRules();
+}
+async function applyChange() {
+  sanitize(); syncInputs(); writeHash(); $("compareOut").innerHTML = ""; await reset();
+}
+function wire() {
+  $("agentSel").onchange = (e) => { state.cfg.agent = e.target.value; applyChange(); };
+  $("measureSeg").onchange = (e) => { state.cfg.measure = e.target.value; syncInputs(); writeHash(); render(); };
+  $("nSel").onchange = (e) => { state.cfg.n = Number(e.target.value); applyChange(); };
+  $("startSel").onchange = (e) => { state.cfg.start = e.target.value; applyChange(); };
+  $("locSensor").onchange = (e) => { state.cfg.loc = e.target.checked ? 1 : 0; applyChange(); };
+  $("regrow").oninput = (e) => { $("regrowVal").textContent = e.target.value + "%"; };
+  $("regrow").onchange = (e) => { state.cfg.regrow = Number(e.target.value) / 100; applyChange(); };
+  $("dumpOk").onchange = (e) => { state.cfg.dump = e.target.checked ? 1 : 0; applyChange(); };
+  $("steps").onchange = (e) => { state.cfg.steps = Number(e.target.value); applyChange(); };
+  $("seed").onchange = (e) => { state.cfg.seed = Number(e.target.value); applyChange(); };
+  $("stale").oninput = (e) => { $("staleVal").textContent = e.target.value === "0" ? "never" : e.target.value + " steps"; };
+  $("stale").onchange = (e) => { state.cfg.stale = Number(e.target.value); applyChange(); };
+
+  $("btnRun").onclick = () => (state.running ? stop() : run());
+  $("btnStep").onclick = async () => { stop(); if (state.busy) return; state.busy = true; await stepOnce(); state.busy = false; render(); };
+  $("btnFinish").onclick = finish;
+  $("btnReset").onclick = reset;
+  $("btnCompare").onclick = compare;
+  $("btnShare").onclick = async () => {
+    writeHash();
+    try { await navigator.clipboard.writeText(location.href); $("shareMsg").textContent = "Link copied."; }
+    catch (e) { $("shareMsg").textContent = "Copy this address: " + location.href; }
+  };
+
+  for (const b of document.querySelectorAll('[role=tab]')) b.onclick = () => selectTab(b.id);
+
+  $("addRule").onclick = () => { state.rules.push({ loc: "any", status: "any", action: "NoOp" }); renderRules(); };
+  $("useRules").onclick = () => { state.cfg.agent = "rules"; applyChange(); };
+  const code = $("code"), ed = $("edCode"), dlg = $("editorDlg");
+  code.value = loadCode();
+  const paintSmall = bindHighlight(code, $("codeHl")), paintBig = bindHighlight(ed, $("edHl"));
+  function setCode(v, from) {
+    if (from !== code) code.value = v;
+    if (from !== ed) ed.value = v;
+    saveCode(v); updateGutter(); paintSmall(); paintBig();
+  }
+  function updateGutter() {
+    const n = ed.value.split("\n").length;
+    let t = ""; for (let i = 1; i <= n; i++) t += i + "\n";
+    $("edGutter").textContent = t;
+    $("edGutter").scrollTop = ed.scrollTop;
+  }
+  function editorKeys(e) {
+    const t = e.target;
+    if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault(); const st = t.selectionStart;
+      t.setRangeText("  ", st, t.selectionEnd, "end"); setCode(t.value, t);
+    } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault(); $("loadCode").click();
+    } else if (e.key === "Enter" && !e.altKey) {
+      // keep the indentation of the current line
+      const st = t.selectionStart, line = t.value.slice(0, st).split("\n").pop();
+      let ind = (line.match(/^\s*/) || [""])[0];
+      if (/[{(\[]\s*$/.test(line)) ind += "  ";
+      e.preventDefault(); t.setRangeText("\n" + ind, st, t.selectionEnd, "end"); setCode(t.value, t);
+    }
+  }
+  paintSmall();
+  code.oninput = () => setCode(code.value, code);
+  ed.oninput = () => setCode(ed.value, ed);
+  code.onkeydown = editorKeys;
+  ed.onkeydown = editorKeys;
+  ed.onscroll = () => { $("edGutter").scrollTop = ed.scrollTop; };
+  $("expandCode").onclick = () => {
+    ed.value = code.value; updateGutter(); paintBig();
+    $("edMsg").textContent = $("codeMsg").textContent; $("edMsg").className = $("codeMsg").className;
+    dlg.showModal(); ed.focus();
+  };
+  $("edClose").onclick = () => dlg.close();
+  $("edLoad").onclick = () => $("loadCode").click();
+  $("edReset").onclick = () => { setCode(EXAMPLE_CODE); };
+  $("resetCode").onclick = () => { setCode(EXAMPLE_CODE); };
+  $("loadCode").onclick = async () => {
+    showCodeMsg("Loading…", false);
+    try {
+      const mode = await startWorker($("code").value);
+      showCodeMsg(mode === "inline"
+        ? "Code loaded. Agent switched to ‘Custom JavaScript’. (This page can't start a Web Worker here, so the code runs in the page; infinite-loop protection covers for/while/do loops written with braces.)"
+        : "Code loaded. Agent switched to ‘Custom JavaScript’.", false, true);
+      state.cfg.agent = "js"; await applyChange();
+    }
+    catch (e) { showCodeMsg(e.message, true); }
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest("input, textarea, select, button")) return;
+    if (e.key === " ") { e.preventDefault(); state.running ? stop() : run(); }
+    if (e.key === "ArrowRight") { e.preventDefault(); $("btnStep").click(); }
+  });
+}
+function selectTab(id) {
+  for (const b of document.querySelectorAll('[role=tab]')) {
+    const on = b.id === id;
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    $(b.getAttribute("aria-controls")).hidden = !on;
+  }
+}
+function showCodeMsg(t, err, ok) { for (const id of ["codeMsg", "edMsg"]) { const m = $(id); if (!m) continue; m.textContent = t; m.className = "msg" + (err ? " err" : ok ? " ok" : ""); } }
+function loadCode() { try { return localStorage.getItem("vw-code") || EXAMPLE_CODE; } catch (e) { return EXAMPLE_CODE; } }
+function saveCode(v) { try { localStorage.setItem("vw-code", v); } catch (e) {} }
+
+function renderRules() {
+  const locOpts = ["any", ...LETTERS.slice(0, state.cfg.n)];
+  const box = $("rules");
+  box.innerHTML = state.rules.map((r, i) => {
+    const warn = r.loc !== "any" && !state.cfg.loc;
+    return '<div class="rule' + (warn ? " warn" : "") + '" data-i="' + i + '"><span class="n">' + (i + 1) + ".</span>" +
+      '<select class="locsel" data-f="loc" aria-label="Rule ' + (i + 1) + ' location">' + locOpts.map((o) => '<option' + (o === r.loc ? " selected" : "") + ">" + o + "</option>").join("") + (locOpts.includes(r.loc) ? "" : '<option selected>' + r.loc + "</option>") + "</select>" +
+      '<select data-f="status" aria-label="Rule ' + (i + 1) + ' status">' + ["any", "Dirty", "Clean"].map((o) => '<option' + (o === r.status ? " selected" : "") + ">" + o + "</option>").join("") + "</select>" +
+      '<select data-f="action" aria-label="Rule ' + (i + 1) + ' action">' + [...ACTIONS, "Random"].map((o) => '<option value="' + o + '"' + (o === r.action ? " selected" : "") + ">" + (o === "Random" ? "Random L/R" : o) + "</option>").join("") + "</select>" +
+      '<button data-del="' + i + '" aria-label="Delete rule ' + (i + 1) + '" title="Delete">×</button></div>';
+  }).join("");
+  box.querySelectorAll("select").forEach((s) => (s.onchange = () => {
+    const i = Number(s.closest(".rule").dataset.i);
+    state.rules[i][s.dataset.f] = s.value; renderRules();
+    if (state.cfg.agent === "rules") { writeHash(); reset(); }
+  }));
+  box.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => {
+    state.rules.splice(Number(b.dataset.del), 1); renderRules();
+    if (state.cfg.agent === "rules") { writeHash(); reset(); }
+  }));
+}
+
+/* ============================================================ challenges */
+const CHALLENGES = [
+  {
+    title: "Is the reflex agent rational?",
+    hint: "The best possible total is 2 squares × lifetime. How close does the agent get, and could any agent avoid the loss in the very first steps?",
+    cfg: { agent: "reflex", measure: "clean", n: 2, loc: 1, regrow: 0, dump: 0, start: "A" },
+    task: "Run the simple reflex agent to the end. Compare its rate per step with the dashed ‘best possible’ line. Could any agent do better under these assumptions?",
+    notice: "With a known 2-square map, perfect sensors and dirt that never comes back, nothing does better: under the ‘clean squares’ measure this agent is rational (AIMA §2.2.2). Keep this answer in mind; the next challenges change one assumption at a time.",
+  },
+  {
+    title: "Moving costs energy",
+    hint: "Watch the Action column after both squares are clean. Which agent can know that there is nothing left to do?",
+    cfg: { agent: "reflex", measure: "moves", n: 2, loc: 1, regrow: 0, dump: 0 },
+    task: "The measure now charges −1 per move. Run the reflex agent, then switch to the model-based agent. What does each one do once everything is clean?",
+    notice: "The reflex agent shuttles between A and B forever and pays for every move. The model-based agent remembers that both squares are clean and stops (NoOp). Same world, different measure: rationality is always relative to the performance measure.",
+  },
+  {
+    title: "Take away the location sensor",
+    hint: "Watch the log: what does the agent do when it perceives [Clean]? What if it is already on A?",
+    cfg: { agent: "reflex", measure: "clean", n: 2, loc: 0, regrow: 0, dump: 0, start: "random", seed: 3 },
+    task: "The agent now perceives only [Dirty] or [Clean]. Run it and watch the log. Try a few seeds. When does it get stuck?",
+    notice: "Its only rule for [Clean] is ‘Left’. If it starts on A, Left bumps into the wall forever and B is never cleaned: an infinite loop caused by partial observability.",
+  },
+  {
+    title: "Flip a coin",
+    hint: "How many steps on average until a coin flip takes it to the other square? Then compare the agents under ‘Clean − moves’.",
+    cfg: { agent: "random", measure: "clean", n: 2, loc: 0, regrow: 0, dump: 0, start: "random", seed: 3 },
+    task: "Same blind agent, but on a clean square it moves Left or Right at random. Run it, then use ‘Compare all agents’. How does it compare with the deterministic agents?",
+    notice: "Randomisation breaks the loop: it reaches the other square in 2 steps on average. But the model-based agent, which localises itself by bumping into the wall, matches it on ‘Clean squares’ without any randomness, and beats it by far on ‘Clean − moves’ because it knows when to stop. Randomisation is a cheap trick, not the best design (AIMA §2.4.2).",
+  },
+  {
+    title: "Dirt comes back",
+    hint: "Try 0, 2, 10 and 30, using ‘Run to end’ each time, and note the score. Where is the peak, and why does it drop on both sides?",
+    cfg: { agent: "model", measure: "moves", n: 4, loc: 1, regrow: 0.02, dump: 0, stale: 0 },
+    task: "Dirt reappears at 2% per step and moves cost energy. Run the model-based agent with ‘re-check after: never’. Then find the re-check interval (Setup tab) that maximises the score. Use ‘Compare all agents’ to check against the others.",
+    notice: "With ‘never’ the agent trusts an outdated belief and stops for good. Very short intervals waste energy on travel; very long ones leave dirt lying around. Here the optimum is around 10 steps, and it beats the randomised agent. Now switch the measure to ‘Clean squares’: travel is free, so shorter is better. The right design depends on both the environment's dynamics and the measure."
+  },
+  {
+    title: "A longer corridor",
+    hint: "Lower the speed and watch which squares the robot visits after its first pass. Which squares never get visited again?",
+    cfg: { agent: "reflex", measure: "clean", n: 4, loc: 1, regrow: 0.02, dump: 0 },
+    task: "Four squares and some dirt reappearing. Run the reflex agent and watch where it spends its time. Can you write custom rules that do better? (Agent program tab.)",
+    notice: "The rule ‘middle squares → Right’ traps the reflex agent between C and D; A and B are never revisited. With only the current percept, a middle square looks the same whether you came from the left or the right. The agent needs memory, i.e. internal state. Rules with ‘Random L/R’ already help a lot (see ‘Compare all agents’); a JavaScript agent with memory can do better still.",
+  },
+  {
+    title: "Game the measure",
+    hint: "Before running: which agent do you expect to win ‘Dirt removed’? Which one ‘Clean squares’?",
+    cfg: { agent: "recycler", measure: "dirt", n: 2, loc: 1, regrow: 0, dump: 1 },
+    task: "The measure is ‘dirt removed’ and the agent can empty its bag. Run the dust recycler. Then press ‘Compare all agents’ and read the table column by column.",
+    notice: "The recycler wins ‘dirt removed’ by a mile, and has the worst score on ‘clean squares’. That is the King Midas problem: the agent optimised exactly what we wrote, not what we meant. Rule: design the measure around what you want in the environment, not around how you think the agent should behave.",
+  },
+  {
+    title: "Write your own agent",
+    hint: "Start from the example code. Localise first: move Left n−1 times. Then update your own position after every Left/Right.",
+    cfg: { agent: "js", measure: "clean", n: 5, loc: 0, regrow: 0.02, dump: 0, start: "random" },
+    task: "Five squares, no location sensor, dirt reappears, random start. Write a JavaScript agent with memory that beats the model-based agent's score. Compare with ‘Run to end’ using the same seed.",
+    notice: "Ideas: localise first (bump into a wall), then track your position from your own actions (a transition model); remember when you last saw each square; patrol rather than stop. This is UPDATE-STATE written by you.",
+  },
+];
+function renderChallenges() {
+  $("challenges").innerHTML = CHALLENGES.map((c, i) =>
+    '<div class="chal' + (state.challenge === i ? " active" : "") + '"><h3><span class="no">' + (i + 1) + "</span>" + c.title + "</h3><p>" + c.task + '</p><div class="row" style="align-items:center"><button data-ch="' + i + '">Set up</button><span></span></div><details><summary>Hint</summary><div>' + c.hint + '</div></details><details><summary>What to notice</summary><div>' + c.notice + "</div></details></div>"
+  ).join("") + '<div class="note">Each ‘Set up’ changes the world settings and resets the run. The link in your address bar always reproduces the current setup.</div>';
+  $("challenges").querySelectorAll("[data-ch]").forEach((b) => (b.onclick = () => {
+    const i = Number(b.dataset.ch);
+    state.challenge = i;
+    state.cfg = { ...DEFAULT, ...CHALLENGES[i].cfg };
+    if (state.cfg.agent === "js" && !workerReady) { selectTab("tbAgent"); showCodeMsg("Edit the example below, then press ‘Load & use this code’.", false); }
+    applyChange(); renderChallenges();
+  }));
+}
+
+/* ============================================================ init */
+/* ---------- help kit ---------- */
+function helpKit(opts) {
+  // tips: {id: html}; buttons with data-tip="id" become info buttons
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  function ensureTip(id) {
+    if (document.getElementById("tip-" + id) || !opts.tips[id]) return;
+    const d = document.createElement("div");
+    d.id = "tip-" + id; d.className = "tip"; d.setAttribute("popover", ""); d.setAttribute("role", "note");
+    d.innerHTML = opts.tips[id];
+    host.appendChild(d);
+  }
+  function wireInfo(root) {
+    (root || document).querySelectorAll("[data-tip]:not([data-wired])").forEach((b) => {
+      const id = b.dataset.tip;
+      ensureTip(id);
+      b.dataset.wired = "1";
+      b.classList.add("info"); b.type = "button"; b.textContent = "i";
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", "More about this");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const p = document.getElementById("tip-" + id);
+        if (!p) return;
+        if (typeof p.togglePopover !== "function") { alert(p.textContent); return; }
+        p._anchor = b;
+        p.togglePopover();
+      });
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    const p = e.target;
+    if (!p.classList || !p.classList.contains("tip")) return;
+    const b = p._anchor;
+    if (b) b.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+    if (e.newState === "open" && b) place(p);
+  }, true);
+  function place(p) {
+    const b = p._anchor; if (!b) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    if (r.bottom < 0 || r.top > innerHeight || !b.isConnected) { p.hidePopover && p.hidePopover(); return; }
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+  }
+  const replace = () => document.querySelectorAll(".tip:popover-open").forEach(place);
+  addEventListener("scroll", replace, { passive: true, capture: true });
+  addEventListener("resize", replace);
+
+  // quick start strip
+  const qk = opts.key + "-quick-hidden";
+  const quick = document.getElementById("quick");
+  let hidden = false;
+  try { hidden = localStorage.getItem(qk) === "1"; } catch (e) {}
+  if (quick) {
+    quick.hidden = hidden;
+    quick.querySelector(".x").onclick = () => { quick.hidden = true; try { localStorage.setItem(qk, "1"); } catch (e) {} };
+    const more = quick.querySelector(".more"); if (more) more.onclick = () => openHelp();
+  }
+  // drawer
+  const dlg = document.getElementById("help");
+  function openHelp(section) {
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (section) { const d = dlg.querySelector('details[data-s="' + section + '"]'); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }
+  }
+  if (dlg) {
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  document.querySelectorAll("[data-open-help]").forEach((b) => (b.onclick = () => openHelp(b.dataset.openHelp)));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "?" ) { e.preventDefault(); dlg && dlg.open ? dlg.close() : openHelp(); }
+  });
+  wireInfo();
+  return { wireInfo, openHelp, firstVisit: !hidden };
+}
+const TIPS = {
+ "percept": "<p>What the agent's sensors report at this step: <b>the only thing the agent knows</b> about the world. It never sees the picture above.</p><p><code>[A, Dirty]</code> = location and dirt status. With the location sensor off it is just <code>[Dirty]</code> or <code>[Clean]</code>.</p>",
+ "bag": "<p>How much dust the agent has collected. It only matters when the <code>Dump</code> action is allowed (Setup).</p>",
+ "measures": "<p>Three ways of scoring <b>the same behaviour</b>, side by side. The highlighted one is the measure you selected in Setup.</p><p>The agents do not read the measure: it is how <i>we</i> judge them. A design that is good under one measure can be bad under another.</p><p>Chart: red = your agent, dashed = the best possible (every square clean at every step).</p>",
+ "internal": "<p>The agent's <b>internal state</b>. Reflex agents have none: same percept, same action.</p><p>The model-based agent keeps a belief for every square (status, when it last saw it). Compare it with the world: beliefs can be <b>wrong or out of date</b>, e.g. when dirt comes back.</p><p>For a JavaScript agent this shows its <code>memory</code> object.</p>",
+ "log": "<p>Newest step on top. <b>Δ</b> = what that step added to the selected measure.</p><p><code>(bump)</code> = it tried to move into a wall and stayed put. Many bumps in a row usually mean the agent is stuck in a loop.</p>",
+ "compare": "<p>Runs every agent on the <b>same 20 worlds</b> (seeds) with your current settings and averages the totals.</p><p>Read it <b>column by column</b>: the best agent depends on the measure. Change one setting, compare again, explain the difference.</p>",
+ "agents": "<p><b>Simple reflex</b>: current percept only. <b>Randomised</b>: coin flip on clean squares. <b>Model-based</b>: remembers what it believes about each square. <b>Dust recycler</b>: exploits one measure. <b>Custom</b>: your rules or code (Agent program tab).</p><p>The line under the menu describes the selected agent exactly.</p>",
+ "sensors": "<p>The <b>location sensor</b> tells the agent which square it is on. Without it, all clean squares look identical: the environment becomes <b>partially observable</b>.</p><p>The dirt sensor sees only the current square, so the agent never sees the other squares directly.</p>",
+ "regrow": "<p>Chance that a clean square becomes dirty again at each step. Above 0% the world is <b>stochastic and dynamic</b>: an agent that remembers ‘B is clean’ will eventually be wrong.</p>",
+ "lifetime": "<p>How many steps the agent lives. Scores are totals over the lifetime; ‘per step’ is the average.</p>",
+ "seed": "<p>Fixes all random choices: initial dirt, start square, when dirt reappears, the randomised agent's coin flips. <b>Same seed = same world</b>, so agents are compared fairly. Change it to see a different world.</p>",
+ "stale": "<p>Only for the model-based agent. After this many steps it stops trusting its belief that a square is clean and goes back to check. ‘never’ = once clean, always clean.</p><p>This is the designer's <b>prior knowledge</b> of how fast dirt returns. Too short wastes moves; too long leaves dirt.</p>",
+ "rules": "<p>Builds a <b>simple reflex agent</b>. Each step the rules are checked <b>top to bottom</b>; the first one whose conditions match the percept decides. <code>any</code> matches everything; no match = <code>NoOp</code>.</p><p>Example: <code>any · Dirty → Suck</code>, <code>A · Clean → Right</code>, <code>B · Clean → Left</code>. Press <b>Use these rules</b> to switch to this agent.</p>",
+ "jsapi": "<p>Define <code>agent(percept, memory)</code> returning <code>'Left'</code>, <code>'Right'</code>, <code>'Suck'</code>, <code>'NoOp'</code> or <code>'Dump'</code>.</p><p><code>percept.location</code>: <code>'A'</code>…<code>'E'</code>, or <code>null</code> with the sensor off. <code>percept.status</code>: <code>'Dirty'</code> or <code>'Clean'</code>.</p><p><code>memory</code> is kept between steps (your internal state) and cleared by <b>Reset</b>. Press <b>Load &amp; use this code</b> after every edit.</p>",
+ "demo": "<p>Like this. Click anywhere else or press <kbd>Esc</kbd> to close.</p>"
+};
+buildSetup();
+readHash();
+wire();
+syncInputs();
+renderChallenges();
+const HELP = helpKit({ key: "vw", tips: TIPS });
+if (HELP.firstVisit && !location.hash) selectTab("tbChal");
+if (state.cfg.agent === "js") { state.cfg.agent = "reflex"; syncInputs(); }
+reset();
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => render());
+</script>
+</body>
+</html>

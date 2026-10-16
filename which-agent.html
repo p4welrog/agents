@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which Agent Is It?</title>
+<meta name="description" content="Recognise and design agent architectures: simple reflex, model-based, goal-based, utility-based, learning (AI Agents in Practice, SWPS).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #2b2b2b; --muted: #6f6f6f; --line: #dddad3;
+  --accent: #c8102e; --accent-soft: #fbe9ec; --blue: #5b8db8; --blue-soft: #e3eef6;
+  --ok: #3f7a2a; --ok-soft: #e8f2e1; --warn: #a86a00; --warn-soft: #fbf0d9; --chip: #f1efe9;
+  --agent: #5b8db8; --agent-soft: #dfeaf3; --env: #7c9a4a; --env-soft: #e9f0de;
+  --c-reflex: #6f6f6f; --c-state: #2a67a0; --c-goal: #a86a00; --c-utility: #8c2a8c; --c-learn: #2f7a3a;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --maxw: 1280px; --code-bg: var(--chip);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+    --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+    --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32;
+    --agent: #8ab6dc; --agent-soft: #23303b; --env: #a5c46f; --env-soft: #2a3322;
+    --c-reflex: #b5b3ad; --c-state: #8ec5f2; --c-goal: #f0b24a; --c-utility: #e08ee0; --c-learn: #98d07a; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1c1e; --panel: #242528; --ink: #e9e7e2; --muted: #a3a19b; --line: #3a3b3f;
+  --accent: #ff5a6e; --accent-soft: #3a2328; --blue: #8ab6dc; --blue-soft: #23303b;
+  --ok: #8fcf6f; --ok-soft: #24311e; --warn: #f0b24a; --warn-soft: #3a2f1a; --chip: #2e2f32;
+  --agent: #8ab6dc; --agent-soft: #23303b; --env: #a5c46f; --env-soft: #2a3322;
+  --c-reflex: #b5b3ad; --c-state: #8ec5f2; --c-goal: #f0b24a; --c-utility: #e08ee0; --c-learn: #98d07a; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+code { font-family: "Fira Mono", ui-monospace, monospace; font-size: .92em; }
+header.top { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; padding: 18px 24px 10px; max-width: var(--maxw); margin: 0 auto; }
+header.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top h1 span { color: var(--accent); }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+.modes { max-width: var(--maxw); margin: 0 auto; padding: 4px 24px 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.modes button { border-radius: 20px; padding: 6px 16px; }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.modes .desc { color: var(--muted); font-size: 13.5px; align-self: center; margin-left: 6px; }
+main { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 40px; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 0 16px 32px; } header.top, .modes { padding-left: 16px; padding-right: 16px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin: 0 0 8px; display: flex; align-items: center; }
+.pad { padding: 14px 16px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+button { font: inherit; font-size: 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+#list { list-style: none; margin: 0; padding: 0; }
+#list li button { width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 6px 8px; display: flex; gap: 8px; align-items: center; min-height: 34px; background: transparent; }
+#list li button:hover { background: var(--chip); }
+#list li button[aria-current="true"] { background: var(--accent-soft); font-weight: 500; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+.dot.done { background: var(--ok); border-color: var(--ok); }
+.dot.part { background: var(--warn); border-color: var(--warn); }
+#listPanel summary { cursor: pointer; list-style: none; }
+#listPanel summary::-webkit-details-marker { display: none; }
+#listPanel summary h2 { display: inline-flex; }
+@media (min-width: 901px) { #listPanel summary { pointer-events: none; } }
+@media (max-width: 900px) { #listPanel summary::after { content: "▾ hide"; float: right; font-size: 12.5px; color: var(--accent); } #listPanel details:not([open]) summary::after { content: "▸ show list"; } }
+.small { font-size: 12.5px; color: var(--muted); }
+#score { font-size: 13.5px; }
+
+.card h1 { font-size: 21px; margin: 0 0 4px; font-weight: 600; }
+.meta { font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.tag { background: var(--chip); border-radius: 4px; padding: 0 6px; }
+.desc { font-size: 16.5px; line-height: 1.6; margin: 10px 0 0; max-width: 75ch; }
+.step { border-top: 1px solid var(--line); }
+.step h3 { font-size: 15px; margin: 0 0 8px; display: flex; gap: 10px; align-items: center; }
+.step h3 .n { color: var(--accent); font-weight: 600; }
+
+/* architecture choice */
+.arch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 760px) { .arch { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.arch label { position: relative; }
+.arch input { position: absolute; opacity: 0; pointer-events: none; }
+.arch .opt { display: block; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; cursor: pointer; height: 100%; }
+.arch .opt b { display: block; font-weight: 600; font-size: 14.5px; }
+.arch .opt span { font-size: 12.5px; color: var(--muted); }
+.arch label:hover .opt { border-color: var(--muted); }
+.arch input:checked + .opt { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: var(--chip); }
+.arch input:focus-visible + .opt { outline: 2px solid var(--blue); outline-offset: 2px; }
+.arch .opt.correct { border-color: var(--ok); box-shadow: inset 0 0 0 2px var(--ok); }
+.arch .opt.wrong { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.learnq { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 14.5px; }
+.pills { display: inline-flex; gap: 6px; }
+.pills label { position: relative; }
+.pills input { position: absolute; opacity: 0; pointer-events: none; }
+.pills span { display: inline-block; border: 1px solid var(--line); border-radius: 18px; padding: 4px 14px; cursor: pointer; }
+.pills input:checked + span { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.pills input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+.pills span.correct { box-shadow: 0 0 0 2px var(--ok); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.result { font-size: 15px; }
+.result b { font-size: 18px; }
+.feedback { margin-top: 12px; border-radius: 8px; padding: 10px 12px; font-size: 14.5px; }
+.feedback.ok { background: var(--ok-soft); border: 1px solid var(--ok); }
+.feedback.bad { background: var(--accent-soft); border: 1px solid var(--accent); }
+.feedback.mid { background: var(--warn-soft); border: 1px solid var(--warn); }
+.feedback p { margin: 0 0 6px; } .feedback p:last-child { margin: 0; }
+mark { background: none; color: inherit; border-bottom: 2.5px solid; padding: 0 1px; }
+mark.reflex { border-color: var(--c-reflex); } mark.state { border-color: var(--c-state); } mark.goal { border-color: var(--c-goal); } mark.utility { border-color: var(--c-utility); } mark.learn { border-color: var(--c-learn); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 16px; height: 0; border-bottom: 2.5px solid; vertical-align: 3px; margin-right: 4px; }
+
+/* build mode */
+.build { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; }
+@media (max-width: 760px) { .build { grid-template-columns: minmax(0, 1fr); } }
+.reqs { margin: 10px 0 0; padding-left: 0; list-style: none; }
+.reqs li { margin: 6px 0; padding: 6px 10px; border-radius: 6px; background: var(--chip); font-size: 14.5px; display: flex; gap: 8px; }
+.reqs li .st { flex: none; width: 18px; font-weight: 700; }
+.reqs li.ok { background: var(--ok-soft); } .reqs li.ok .st { color: var(--ok); }
+.reqs li.bad { background: var(--accent-soft); } .reqs li.bad .st { color: var(--accent); }
+.reqs li .why { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.comp h4 { margin: 10px 0 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+.comp h4:first-child { margin-top: 0; }
+.tog { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 14px; border: 1px solid transparent; }
+.tog:hover { background: var(--chip); }
+.tog input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.tog .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.tog.extra { border-color: var(--warn); background: var(--warn-soft); }
+.tog.missing { border-color: var(--accent); background: var(--accent-soft); }
+.diagram { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 6px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+.verdict { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin: 10px 0 0; font-size: 15px; }
+.verdict b { font-size: 17px; }
+.warns { margin: 8px 0 0; padding: 0; list-style: none; }
+.warns li { font-size: 13.5px; color: var(--warn); margin: 3px 0; }
+.warns li::before { content: "⚠ "; }
+.extras { margin: 8px 0 0; padding: 0; list-style: none; }
+.extras li { font-size: 13.5px; margin: 3px 0; }
+footer { max-width: var(--maxw); margin: 0 auto; padding: 0 24px 30px; color: var(--muted); font-size: 12.5px; }
+/* ---------- help kit: quick start, info tips, help drawer ---------- */
+.helpbtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.helpbtn .q { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--panel); display: inline-grid; place-items: center; font-weight: 600; font-size: 13px; }
+.info { width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 11px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; cursor: pointer; vertical-align: 1px; margin-left: 6px; flex: none; text-transform: none; letter-spacing: 0; }
+.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); }
+.tip { position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 13.5px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin-bottom: 0; }
+.tip b { font-weight: 600; }
+.tip code { font-size: 12.5px; }
+.quick { max-width: var(--maxw); margin: 0 auto 4px; padding: 0 24px; }
+.quick .in { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px 10px 14px; font-size: 14px; }
+.quick .lead { font-weight: 600; }
+.quick ol { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; counter-reset: q; flex: 1; }
+.quick li { counter-increment: q; display: flex; gap: 7px; align-items: baseline; }
+.quick li::before { content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.quick .x { margin-left: auto; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); min-height: 28px; padding: 0 4px; }
+.quick .more { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+@media (max-width: 980px) { .quick { padding: 0 16px; } }
+@media (max-width: 700px) { .quick .lead { order: 0; } .quick .x { order: 1; } .quick ol { order: 2; flex-basis: 100%; flex-direction: column; } .quick .more { order: 3; } }
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(560px, 100vw); max-width: 100vw; border: 0; border-left: 1px solid var(--line); padding: 0; background: var(--panel); color: var(--ink); }
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer .dh { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
+dialog.drawer .dh h2 { margin: 0; font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); padding: 0; }
+dialog.drawer .dh button { margin-left: auto; }
+dialog.drawer .db { padding: 6px 18px 28px; font-size: 14.5px; }
+dialog.drawer details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+dialog.drawer summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+dialog.drawer details > div { padding-top: 8px; }
+dialog.drawer p { margin: 0 0 8px; }
+dialog.drawer ul { margin: 0 0 8px; padding-left: 18px; } dialog.drawer li { margin: 3px 0; }
+dialog.drawer table { font-size: 13.5px; }
+dialog.drawer pre { background: var(--code-bg, var(--chip)); padding: 8px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+kbd { font-family: "Fira Mono", ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }
+
+.home { flex-basis: 100%; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: -6px; }
+.home:hover, .home:focus-visible { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="index.html">← All tools</a>
+  <h1>Which <span>Agent</span> Is It?</h1>
+  <p>Recognise agent architectures from behaviour, and design the simplest one that does the job.</p>
+  <button class="helpbtn" data-open-help="" aria-haspopup="dialog"><span class="q">?</span>Help</button>
+</header>
+<div class="quick" id="quick" hidden><div class="in">
+  <span class="lead">Quick start</span>
+  <ol>
+    <li><span><b>Identify</b>: read a behaviour, pick the architecture and whether it learns, press <b>Check</b>.</span></li>
+    <li><span><b>Build</b>: switch components on until every requirement can be met, then press <b>Check design</b>.</span></li>
+    <li><span>Aim for the <b>simplest</b> agent that works: extra components are flagged.</span></li>
+  </ol>
+  <button class="more">Full guide</button>
+  <button class="x" aria-label="Hide quick start">×</button>
+</div></div>
+<div class="modes" role="group" aria-label="Mode">
+  <button id="mIdentify" aria-pressed="true">Identify</button>
+  <button id="mBuild" aria-pressed="false">Build</button>
+  <span class="desc" id="modeDesc"></span>
+</div>
+
+<main>
+  <aside class="stack">
+    <section class="panel pad" id="listPanel">
+      <details open id="listDetails">
+        <summary><h2 id="listTitle">Cases</h2> <span class="small" id="listCount"></span></summary>
+        <ul id="list"></ul>
+      </details>
+    </section>
+    <section class="panel pad">
+      <h2>Progress<button data-tip="progress" aria-label="About progress"></button></h2>
+      <div id="score"></div>
+      <button id="resetAll" style="margin-top:10px;width:100%" aria-live="polite">Reset all progress</button>
+    </section>
+  </aside>
+  <section class="panel card" id="card" aria-live="polite"></section>
+</main>
+
+<dialog class="drawer" id="help" aria-labelledby="helpTitle">
+  <div class="dh"><h2 id="helpTitle">How to use “Which Agent Is It?”</h2><button class="close">Close</button></div>
+  <div class="db">
+    <details open data-s="what"><summary>What is this for?</summary><div>
+      <p>Russell &amp; Norvig describe four basic agent programs, each adding one capability to the previous one, and a way to make any of them learn. Here you practise both directions:</p>
+      <ul>
+        <li><b>Identify</b>: from a description of behaviour, decide which architecture is behind it.</li>
+        <li><b>Build</b>: from a list of requirements, assemble the simplest architecture that can meet them, and watch its diagram appear.</li>
+      </ul>
+    </div></details>
+    <details data-s="types"><summary>The four architectures in one minute</summary><div>
+      <ul>
+        <li><b>Simple reflex</b>: condition → action on the <i>current percept</i> only. No memory.</li>
+        <li><b>Model-based reflex</b>: keeps an <b>internal state</b>, updated with a model of how the world evolves and what its actions do. Still chooses by rules.</li>
+        <li><b>Goal-based</b>: knows which situations are <b>desirable</b> and predicts “what happens if I do A?” to reach them (search, planning).</li>
+        <li><b>Utility-based</b>: rates states on a <b>scale</b>, so it can trade off conflicting goals and weigh probabilities: maximises expected utility.</li>
+        <li><b>+ Learning</b>: any of them can get a <b>critic</b> (feedback against a fixed standard), a <b>learning element</b> (makes improvements) and a <b>problem generator</b> (suggests exploratory actions).</li>
+      </ul>
+    </div></details>
+    <details data-s="identify"><summary>Identify mode</summary><div>
+      <ol>
+        <li>Read the case. Look for <b>evidence</b>: does it remember anything? Does it have a destination? Does it weigh several things? Does it get better over time?</li>
+        <li>Pick the architecture and answer “Does it learn?”, then <b>Check</b>.</li>
+        <li>The feedback underlines the clues in the text, coloured by what they reveal (legend below the text).</li>
+      </ol>
+      <p>Choose the <b>simplest</b> architecture that explains the behaviour. A thermostat <i>could</i> be built as a utility maximiser, but nothing in its behaviour requires it.</p>
+    </div></details>
+    <details data-s="build"><summary>Build mode</summary><div>
+      <ol>
+        <li>Read the task and its requirements.</li>
+        <li>Switch components on or off in the left column. The diagram and the name of the architecture update as you go; warnings show inconsistent combinations (e.g. goals without a way to predict outcomes).</li>
+        <li><b>Check design</b> marks each requirement ✓ or ✗ and flags components that are <b>not needed</b>: a more complex agent is slower, harder to build and harder to trust.</li>
+      </ol>
+    </div></details>
+    <details data-s="components"><summary>The components</summary><div>
+      <ul>
+        <li><b>State</b>: what the agent currently believes about the world, including what it can't see now.</li>
+        <li><b>How the world evolves</b>: changes that happen without the agent (other cars move, dirt appears).</li>
+        <li><b>What my actions do</b>: effects of the agent's own actions. Needed both to update the state and to predict “what if I do A?”.</li>
+        <li><b>Goals</b>: descriptions of desirable situations (binary: reached or not).</li>
+        <li><b>Utility</b>: a number for how good a state is; allows trade-offs and expected values.</li>
+        <li><b>Critic</b>, <b>Learning element</b>, <b>Problem generator</b>: the learning agent's parts.</li>
+      </ul>
+      <p>Condition–action rules are drawn automatically when there are no goals or utility: then the rules decide.</p>
+    </div></details>
+    <details data-s="data"><summary>Your progress</summary><div>
+      <p>Saved only in this browser. <b>Reset all progress</b> asks for a second click before deleting. <b>Try again</b> redoes one case or task.</p>
+      <p>Shortcut: <kbd>?</kbd> opens this guide, <kbd>Esc</kbd> closes it.</p>
+    </div></details>
+  </div>
+</dialog>
+
+<footer>AI Agents in Practice · SWPS University · architectures from Russell &amp; Norvig, <i>Artificial Intelligence: A Modern Approach</i> (4th ed.), §2.4. Progress is stored only in this browser.</footer>
+
+<script>
+"use strict";
+/* ============================================================ data */
+const ARCH = [
+  { k: "reflex", name: "Simple reflex", sub: "current percept → rule" },
+  { k: "model", name: "Model-based reflex", sub: "internal state + rules" },
+  { k: "goal", name: "Goal-based", sub: "predicts outcomes to reach goals" },
+  { k: "utility", name: "Utility-based", sub: "maximises expected utility" },
+];
+const ARCH_NAME = { reflex: "Simple reflex agent", model: "Model-based reflex agent", goal: "Goal-based agent", utility: "Utility-based agent" };
+
+/* Identify cases. clues: [substring, kind] with kind in reflex|state|goal|utility|learn */
+const CASES = [
+  { id: "thermostat", title: "Room thermostat", a: "reflex", learn: false,
+    text: "A wall thermostat switches the boiler on when the room temperature drops below 20 °C and off when it rises above 21 °C. It does exactly the same thing every winter.",
+    clues: [["switches the boiler on when the room temperature drops below 20 °C", "reflex"], ["exactly the same thing every winter", "reflex"]],
+    why: "Each action depends only on the current temperature reading: a pair of condition–action rules. Nothing is remembered, no goal is reasoned about, and it never changes its behaviour." },
+  { id: "stickleback", title: "Three-spined stickleback", a: "reflex", learn: false,
+    text: "During the breeding season a male stickleback attacks any intruder with a red belly. Researchers found it attacks a crude red-painted piece of wood just as fiercely, while ignoring a realistic model of a male without the red colour.",
+    clues: [["attacks any intruder with a red belly", "reflex"], ["attacks a crude red-painted piece of wood just as fiercely", "reflex"]],
+    why: "A fixed stimulus–response rule: red → attack. The trigger is a single feature of the current percept, not a model of what a rival is." },
+  { id: "sphex", title: "Sphex wasp", a: "reflex", learn: false,
+    text: "The wasp drags a paralysed caterpillar to its burrow, goes inside to check it, then comes out to pull the caterpillar in. If an experimenter moves the caterpillar a few centimetres while the wasp is inside, the wasp drags it back to the entrance and checks the burrow again, dozens of times in a row.",
+    clues: [["drags it back to the entrance and checks the burrow again", "reflex"], ["dozens of times in a row", "reflex"]],
+    why: "Each step is triggered by what it currently perceives (‘caterpillar not at the entrance’ → drag it there; ‘caterpillar at entrance’ → check burrow). It does not remember that it has just checked, and it never adapts: a lack of autonomy (AIMA §2.2.3)." },
+  { id: "spam", title: "Self-improving spam filter", a: "reflex", learn: true,
+    text: "Each incoming e-mail is labelled spam or not spam from its words and headers alone. Every night the filter is retrained on the messages that users moved out of the spam folder with ‘Not spam’.",
+    clues: [["labelled spam or not spam from its words and headers alone", "reflex"], ["retrained on the messages that users moved out of the spam folder", "learn"]],
+    why: "The decision is a reflex: one message in, one label out, no memory of earlier messages. But the rules are improved by a learning element, with users' ‘Not spam’ clicks acting as the critic's feedback. Learning can wrap even the simplest architecture." },
+  { id: "braking", title: "Automatic emergency braking", a: "model", learn: false,
+    text: "The car compares the current camera frame with the previous one. When the brake lights of the car ahead switch on between the two frames, or the gap shrinks faster than a threshold, it starts braking.",
+    clues: [["compares the current camera frame with the previous one", "state"], ["switch on between the two frames", "state"], ["it starts braking", "reflex"]],
+    why: "One frame is not enough (old cars have odd light configurations; tail lights may already be on), so it keeps the previous frame: internal state. The decision itself is still a rule. That is exactly AIMA's model-based reflex braking example." },
+  { id: "elevator", title: "Elevator controller", a: "model", learn: false,
+    text: "The controller keeps a list of floors where buttons have been pressed and remembers its current direction. It keeps going in that direction, stopping at requested floors, and reverses only when no requests remain ahead.",
+    clues: [["keeps a list of floors where buttons have been pressed", "state"], ["remembers its current direction", "state"], ["reverses only when no requests remain ahead", "reflex"]],
+    why: "The pressed buttons and its direction are internal state. The behaviour is a fixed rule (the ‘elevator algorithm’, SCAN) applied to that state, not a search for the best plan." },
+  { id: "roomba", title: "Mapping robot vacuum", a: "model", learn: false,
+    text: "While cleaning, the robot builds a map of the flat from its lidar and marks the areas it has already covered. It follows a fixed pattern: clean the nearest uncovered area, and when everything is covered, return to the dock.",
+    clues: [["builds a map of the flat", "state"], ["marks the areas it has already covered", "state"], ["follows a fixed pattern", "reflex"]],
+    why: "The map and the ‘covered’ marks are internal state that compensates for partial observability. Action selection is a fixed rule over that state. If it instead planned routes to minimise time, it would be goal- or utility-based." },
+  { id: "gps", title: "Car navigation", a: "goal", learn: false,
+    text: "The driver types a destination. The navigation computes a sequence of turns that leads there, and when the driver misses an exit, it immediately computes a new route to the same destination.",
+    clues: [["types a destination", "goal"], ["computes a sequence of turns that leads there", "goal"], ["computes a new route to the same destination", "goal"]],
+    why: "There is an explicit goal (the destination) and it searches for an action sequence to reach it, re-planning when the world changes. Change the destination and the same program behaves differently without new rules: the hallmark of a goal-based agent." },
+  { id: "rubik", title: "Rubik's cube solver", a: "goal", learn: false,
+    text: "Given a scrambled cube, the program explores sequences of face turns, predicting the cube after each turn, until it finds one that ends in the solved state.",
+    clues: [["predicting the cube after each turn", "goal"], ["ends in the solved state", "goal"]],
+    why: "Search with a model of what each action does, towards a binary goal (solved or not). No trade-offs are needed: every solution is ‘good’ (preferring the shortest one would add a simple cost, the start of utility)." },
+  { id: "router", title: "Route planner with preferences", a: "utility", learn: false,
+    text: "For a lorry trip, the planner compares candidate routes by expected travel time, tolls, fuel cost and the risk of being stuck in a traffic jam, and picks the route with the best weighted total.",
+    clues: [["compares candidate routes", "goal"], ["expected travel time, tolls, fuel cost and the risk", "utility"], ["best weighted total", "utility"]],
+    why: "Every route reaches the goal; what differs is how good it is. Weighing several criteria and probabilities (risk of a jam) into one score is a utility function, and choosing the best expected value is utility-based." },
+  { id: "poker", title: "Poker bot", a: "utility", learn: false,
+    text: "For each possible action (fold, call, raise) the bot estimates its probability of winning the hand and the chips it would win or lose, and plays the action with the highest expected chip gain.",
+    clues: [["estimates its probability of winning", "utility"], ["the chips it would win or lose", "utility"], ["highest expected chip gain", "utility"]],
+    why: "Probabilities × payoffs → expected value; choose the maximum. That is the definition of a utility-based (decision-theoretic) agent." },
+  { id: "alphazero", title: "AlphaZero", a: "utility", learn: true,
+    text: "The program looks ahead through possible moves and rates positions with a neural network that estimates the chance of winning. It improves that network by playing millions of games against itself and comparing its predictions with the actual results.",
+    clues: [["looks ahead through possible moves", "goal"], ["estimates the chance of winning", "utility"], ["improves that network by playing millions of games against itself", "learn"], ["comparing its predictions with the actual results", "learn"]],
+    why: "Positions get a graded value (probability of winning), not just win/lose, and moves are chosen to maximise it: utility-based. Self-play provides experience; comparing predictions with game outcomes is the critic; updating the network is the learning element." },
+  { id: "recommender", title: "Streaming recommender", a: "utility", learn: true,
+    text: "The service picks the next title that maximises the predicted watch time for this viewer. Predictions are updated from what people actually watch, and a small share of recommendations deliberately shows titles it knows little about, to find out whether the viewer likes them.",
+    clues: [["maximises the predicted watch time", "utility"], ["updated from what people actually watch", "learn"], ["deliberately shows titles it knows little about", "learn"]],
+    why: "A graded objective (predicted watch time) → utility-based. Updating predictions from feedback is learning, and the deliberate recommendations of unknown titles are the problem generator: exploration." },
+  { id: "llmagent", title: "LLM coding agent", a: "goal", learn: false,
+    text: "Given a bug report, an LLM agent reads files, runs the tests, keeps the outputs in its context window and edits code until the failing test passes. Its model weights stay the same from one task to the next.",
+    clues: [["keeps the outputs in its context window", "state"], ["until the failing test passes", "goal"], ["weights stay the same", "reflex"]],
+    why: "The context window is its internal state; ‘the failing test passes’ is an explicit binary goal it works towards with multi-step actions. It does not learn in AIMA's sense: adapting to the context within one task is state, not a learning element changing the agent. (If it weighed cost, time and risk, it would move towards utility.)" },
+];
+
+/* Build tasks. needs: list of requirement objects {t, need} with need in memory|predict|goals|tradeoff|learn|explore|none */
+const TASKS = [
+  { id: "b-thermo", title: "Thermostat", target: "Simple reflex agent",
+    text: "Design the control program of a basic heating thermostat with one temperature sensor.",
+    reqs: [{ t: "Switch heating on below 20 °C and off above 21 °C, using the current reading.", need: "none" }] },
+  { id: "b-brake", title: "Emergency braking", target: "Model-based reflex agent",
+    reqs: [{ t: "Detect that the car ahead has started braking: the brake lights switch on between two consecutive camera frames.", need: "memory" }, { t: "Then apply the brakes immediately (a fixed rule is fine).", need: "none" }],
+    text: "Design the program of an automatic emergency braking system." },
+  { id: "b-blindvac", title: "Vacuum without a location sensor", target: "Model-based reflex agent",
+    text: "A robot vacuum works in a corridor of 4 squares. It senses only whether its current square is dirty; it has no location sensor.",
+    reqs: [{ t: "Know which square it is on, by keeping track of its own moves.", need: "memory" }, { t: "Stop moving once every square has been cleaned (moves cost energy).", need: "memory" }] },
+  { id: "b-warehouse", title: "Warehouse robot", target: "Goal-based agent",
+    text: "A robot in a warehouse receives a new destination shelf for every order and must drive there around the shelving.",
+    reqs: [{ t: "Track its position between lidar scans.", need: "memory" }, { t: "Accept a different destination for every order without being reprogrammed.", need: "goals" }, { t: "Plan a sequence of moves by predicting where each move takes it.", need: "predict" }] },
+  { id: "b-taxi", title: "Automated taxi", target: "Utility-based agent",
+    text: "A self-driving taxi takes passengers through city traffic.",
+    reqs: [{ t: "Keep track of cars that are temporarily hidden behind a lorry.", need: "memory" }, { t: "Reach the destination the passenger gives.", need: "goals" }, { t: "Predict the effect of manoeuvres before choosing one.", need: "predict" }, { t: "Balance travel time, fuel use, comfort and safety, under uncertain traffic.", need: "tradeoff" }] },
+  { id: "b-spam", title: "Spam filter", target: "Simple reflex agent + learning",
+    text: "An e-mail service labels each incoming message.",
+    reqs: [{ t: "Label each message from its own content; earlier messages don't matter.", need: "none" }, { t: "Get better over time from users' ‘Not spam’ and ‘Report spam’ clicks.", need: "learn" }] },
+  { id: "b-dock", title: "Learning robot vacuum", target: "Goal-based agent + learning",
+    text: "A home robot vacuum with a map and a battery.",
+    reqs: [{ t: "Remember which rooms it has cleaned today.", need: "memory" }, { t: "Get back to the dock before the battery runs out, planning its path there.", need: "goals" }, { t: "Predict how far each path takes it.", need: "predict" }, { t: "Learn from experience where and when dirt usually accumulates.", need: "learn" }] },
+  { id: "b-music", title: "Music recommender", target: "Utility-based agent + learning (with exploration)",
+    text: "A streaming app picks the next song for each listener.",
+    reqs: [{ t: "Remember what has been played in the current session.", need: "memory" }, { t: "Predict how a listener would react to each candidate song.", need: "predict" }, { t: "Choose the song with the highest expected listening time.", need: "tradeoff" }, { t: "Learn each listener's taste from skips and likes.", need: "learn" }, { t: "Now and then try an unfamiliar genre to discover new favourites.", need: "explore" }] },
+];
+
+const COMPONENTS = [
+  { group: "Memory", items: [
+    { k: "state", name: "State", kind: "state" },
+    { k: "evolves", name: "How the world evolves", kind: "state" },
+  ] },
+  { group: "Prediction", items: [{ k: "actions", name: "What my actions do", kind: "state" }] },
+  { group: "Objectives", items: [
+    { k: "goals", name: "Goals", kind: "goal" },
+    { k: "utility", name: "Utility", kind: "utility" },
+  ] },
+  { group: "Learning", items: [
+    { k: "critic", name: "Critic", kind: "learn" },
+    { k: "learner", name: "Learning element", kind: "learn" },
+    { k: "problem", name: "Problem generator", kind: "learn" },
+  ] },
+];
+const ALLC = COMPONENTS.flatMap((g) => g.items.map((i) => i.k));
+const CNAME = Object.fromEntries(COMPONENTS.flatMap((g) => g.items.map((i) => [i.k, i.name])));
+
+const NEED = {
+  none: { ok: () => true, why: "The current percept is enough: a condition–action rule does it." },
+  memory: { ok: (c) => c.state && (c.evolves || c.actions), why: "Needs internal State, kept up to date with a model (How the world evolves and/or What my actions do)." },
+  predict: { ok: (c) => c.actions, why: "Predicting ‘what happens if I do A’ needs What my actions do." },
+  goals: { ok: (c) => c.goals || c.utility, why: "A destination that changes per task is a Goal (a Utility function can also encode it)." },
+  tradeoff: { ok: (c) => c.utility, why: "Weighing several criteria and uncertain outcomes needs a Utility function; goals are only reached / not reached." },
+  learn: { ok: (c) => c.critic && c.learner, why: "Improving from feedback needs a Critic (judges against a standard) and a Learning element (makes the changes)." },
+  explore: { ok: (c) => c.problem && c.learner && c.critic, why: "Deliberately trying new things is the Problem generator's job." },
+};
+// which components a requirement justifies
+const JUSTIFY = { memory: ["state", "evolves", "actions"], predict: ["actions"], goals: ["goals"], tradeoff: ["utility"], learn: ["critic", "learner"], explore: ["problem", "critic", "learner"], none: [] };
+const EXTRA_WHY = {
+  state: "no requirement needs memory: the current percept is enough.",
+  evolves: "nothing needs to be tracked over time.",
+  actions: "nothing needs to be predicted or tracked.",
+  goals: "the behaviour is fixed: no changing destination to reason about.",
+  utility: "no trade-off between criteria is required.",
+  critic: "the task doesn't ask the agent to improve.",
+  learner: "the task doesn't ask the agent to improve.",
+  problem: "no requirement asks for deliberate exploration.",
+};
+
+/* ============================================================ storage */
+const KEY = "which-agent-v1";
+let store = { mode: "identify", id: {}, build: {} };
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.id && s.build) store = s; } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let cur = { identify: 0, build: 0 };
+
+/* ============================================================ classification of a component set */
+function classify(c) {
+  const base = c.utility ? "utility" : c.goals ? "goal" : c.state ? "model" : "reflex";
+  const learning = c.critic && c.learner;
+  const warns = [];
+  if ((c.goals || c.utility) && !c.actions) warns.push("Goals and utility are about the future: without ‘What my actions do’ the agent cannot predict what an action leads to.");
+  if (c.state && !c.evolves && !c.actions) warns.push("State with no model can't be updated: add ‘How the world evolves’ and/or ‘What my actions do’.");
+  if (!c.state && c.evolves && !c.goals && !c.utility) warns.push("‘How the world evolves’ is only useful with State (or for prediction).");
+  if (c.learner && !c.critic) warns.push("The learning element needs feedback: add a Critic.");
+  if (c.critic && !c.learner) warns.push("The critic's feedback goes nowhere without a Learning element.");
+  if (c.problem && !c.learner) warns.push("The problem generator serves the learning element: add one.");
+  return { base, learning, name: ARCH_NAME[base] + (learning ? " + learning" : ""), warns };
+}
+
+/* ============================================================ SVG diagram */
+function textW(t, size) { return t.length * size * 0.56 + 22; }
+function drawAgent(c) {
+  const L = c.critic || c.learner || c.problem;
+  const W = 760, H = 470, ax0 = 10, ax1 = 600, ex0 = 622, ex1 = 668;
+  const rx = 470, bw = 186, bh = 46;
+  const ox = L ? 285 : 190;
+  const showP = c.goals || c.utility, showH = c.utility;
+  const boxes = [["W", "What the world\nis like now"]];
+  if (showP) boxes.push(["P", "What it will be like\nif I do action A"]);
+  if (showH) boxes.push(["H", "How happy I will be\nin such a state"]);
+  boxes.push(["A", "What action I\nshould do now"]);
+  const top = 92, bot = 388, pos = {};
+  boxes.forEach(([k], i) => (pos[k] = top + (boxes.length === 1 ? 0 : (i * (bot - top)) / (boxes.length - 1))));
+  const v = (n) => "var(--" + n + ")";
+  let s = "";
+  const defs = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="' + v("ink") + '"/></marker></defs>';
+  const line = (x1, y1, x2, y2, extra) => '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + v("ink") + '" stroke-width="1.3" marker-end="url(#ah)"' + (extra || "") + "/>";
+  const label = (x, y, t, size, col, anchor, weight) => '<text x="' + x + '" y="' + y + '" font-size="' + (size || 13) + '" fill="' + (col || v("ink")) + '" text-anchor="' + (anchor || "middle") + '"' + (weight ? ' font-weight="' + weight + '"' : "") + ">" + esc(t) + "</text>";
+  const box = (cx, cy, t, w, col) => {
+    const ww = w || bw;
+    let r = '<rect x="' + (cx - ww / 2) + '" y="' + (cy - bh / 2) + '" width="' + ww + '" height="' + bh + '" fill="' + v("panel") + '" stroke="' + (col || v("ink")) + '" stroke-width="' + (col ? 2 : 1.2) + '"/>';
+    const ls = t.split("\n");
+    ls.forEach((l, i) => (r += label(cx, cy + 5 + (i - (ls.length - 1) / 2) * 16, l, 13)));
+    return r;
+  };
+  const oval = (cx, cy, t, col) => {
+    const w = textW(t, 13);
+    return { svg: '<rect x="' + (cx - w / 2) + '" y="' + (cy - 14) + '" width="' + w + '" height="28" rx="14" fill="' + v("panel") + '" stroke="' + (col || v("ink")) + '" stroke-width="' + (col ? 2.2 : 1.2) + '"/>' + label(cx, cy + 5, t, 13), r: cx + w / 2, l: cx - w / 2 };
+  };
+  // frame
+  s += '<rect x="' + ax0 + '" y="10" width="' + (ax1 - ax0) + '" height="' + (H - 20) + '" rx="16" fill="' + v("agent-soft") + '" stroke="' + v("agent") + '" stroke-width="1.5"/>';
+  s += '<rect x="' + ex0 + '" y="10" width="' + (ex1 - ex0) + '" height="' + (H - 20) + '" rx="14" fill="' + v("env-soft") + '" stroke="' + v("env") + '" stroke-width="1.5"/>';
+  s += '<text x="' + (ex0 + ex1) / 2 + '" y="' + H / 2 + '" font-size="15" fill="' + v("ink") + '" text-anchor="middle" transform="rotate(90 ' + (ex0 + ex1) / 2 + " " + H / 2 + ')">Environment</text>';
+  s += label(ax0 + 14, H - 24, "Agent", 17, v("agent"), "start", 600);
+  s += label(rx, 40, "Sensors", 13);
+  s += line((ex0 + ex1) / 2, 36, rx + 32, 36);
+  s += label(rx, 446, "Actuators", 13);
+  s += line(rx + 36, 442, (ex0 + ex1) / 2, 442);
+  // performance element outline when learning
+  if (L) {
+    s += '<rect x="' + (ox - 120) + '" y="56" width="' + (rx + bw / 2 + 12 - (ox - 120)) + '" height="364" rx="10" fill="none" stroke="' + v("c-learn") + '" stroke-dasharray="5 4" stroke-width="1.3"/>';
+    s += label(ox - 112, 72, "performance element", 11.5, v("c-learn"), "start");
+  }
+  // right column
+  boxes.forEach(([k, t]) => (s += box(rx, pos[k], t)));
+  s += line(rx, 46, rx, pos.W - bh / 2);
+  for (let i = 0; i < boxes.length - 1; i++) s += line(rx, pos[boxes[i][0]] + bh / 2, rx, pos[boxes[i + 1][0]] - bh / 2);
+  s += line(rx, pos.A + bh / 2, rx, 432);
+  // left column (ovals)
+  const target = (k) => pos[k];
+  let oy = 100;
+  if (c.state) {
+    const o = oval(ox, oy, "State", v("c-state"));
+    s += o.svg + line(o.r, oy, rx - bw / 2, pos.W - 8);
+    s += '<path d="M ' + (rx - bw / 2 + 10) + " " + (pos.W - bh / 2) + " C " + (rx - 60) + " " + (oy - 60) + ", " + (ox + 30) + " " + (oy - 50) + ", " + (ox + 6) + " " + (oy - 15) + '" fill="none" stroke="' + v("ink") + '" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#ah)"/>';
+    oy += 46;
+  }
+  if (c.evolves) {
+    const o = oval(ox, oy, "How the world evolves", v("c-state"));
+    s += o.svg + line(o.r, oy, rx - bw / 2, pos.W);
+    if (showP) s += line(o.r, oy, rx - bw / 2, pos.P - 6);
+    oy += 46;
+  }
+  if (c.actions) {
+    const o = oval(ox, oy, "What my actions do", v("c-state"));
+    s += o.svg;
+    if (c.state || c.evolves) s += line(o.r, oy, rx - bw / 2, pos.W + 8);
+    if (showP) s += line(o.r, oy, rx - bw / 2, pos.P + 6);
+    oy += 46;
+  }
+  if (c.utility) {
+    const y = target("H"); const o = oval(ox, y, "Utility", v("c-utility"));
+    s += o.svg + line(o.r, y, rx - bw / 2, y);
+  }
+  if (c.goals) {
+    const y = c.utility ? Math.min(target("A"), target("H") + 52) : target("A");
+    const o = oval(ox, y, "Goals", v("c-goal"));
+    s += o.svg + line(o.r, y, rx - bw / 2, c.utility ? target("H") + 10 : y);
+  }
+  if (!c.goals && !c.utility) {
+    const y = target("A"); const o = oval(ox, y, "Condition–action rules", v("c-reflex"));
+    s += o.svg + line(o.r, y, rx - bw / 2, y);
+  }
+  // learning column
+  if (L) {
+    const lx = 82, lw = 120;
+    s += label(lx, 32, "Performance standard", 11.5, v("muted"));
+    if (c.critic) {
+      s += line(lx, 38, lx, 96);
+      s += box(lx, 118, "Critic", lw, v("c-learn"));
+      s += '<path d="M ' + (rx - 34) + ' 36 L ' + (lx + lw / 2 + 30) + " 36 L " + (lx + lw / 2 + 2) + ' 104" fill="none" stroke="' + v("ink") + '" stroke-width="1.2" marker-end="url(#ah)"/>';
+    }
+    if (c.learner) {
+      s += box(lx, 240, "Learning\nelement", lw, v("c-learn"));
+      if (c.critic) { s += line(lx, 141, lx, 216); s += label(lx - 6, 182, "feedback", 11, v("muted"), "end"); }
+      s += line(lx + lw / 2, 232, ox - 120, 232);
+      s += label(lx + lw / 2 + 6, 224, "changes", 11, v("muted"), "start");
+    }
+    if (c.problem) {
+      s += box(lx, 362, "Problem\ngenerator", lw, v("c-learn"));
+      if (c.learner) { s += line(lx, 263, lx, 338); s += label(lx - 6, 302, "learning goals", 11, v("muted"), "end"); }
+      s += line(lx + lw / 2, 362, rx - bw / 2, pos.A + 12);
+    }
+  }
+  return '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Agent diagram: ' + esc(classify(c).name) + '" font-family="Fira Sans, Segoe UI, system-ui, sans-serif">' + defs + s + "</svg>";
+}
+
+/* ============================================================ helpers */
+function highlightClues(text, clues) {
+  let parts = [{ t: text }];
+  for (const [sub, kind] of clues) {
+    parts = parts.flatMap((p) => {
+      if (p.k) return [p];
+      const i = p.t.indexOf(sub);
+      if (i < 0) return [p];
+      return [{ t: p.t.slice(0, i) }, { t: sub, k: kind }, { t: p.t.slice(i + sub.length) }];
+    });
+  }
+  return parts.map((p) => (p.k ? '<mark class="' + p.k + '">' + esc(p.t) + "</mark>" : esc(p.t))).join("");
+}
+const LEGEND = '<div class="legend"><span><i style="border-color:var(--c-reflex)"></i>reflex rule</span><span><i style="border-color:var(--c-state)"></i>internal state / model</span><span><i style="border-color:var(--c-goal)"></i>goal / prediction</span><span><i style="border-color:var(--c-utility)"></i>utility / trade-off</span><span><i style="border-color:var(--c-learn)"></i>learning</span></div>';
+
+/* ============================================================ render: list + progress */
+function mode() { return store.mode; }
+function items() { return mode() === "identify" ? CASES : TASKS; }
+function resultOf(m, id) { return (m === "identify" ? store.id : store.build)[id]; }
+function renderList() {
+  const its = items(), m = mode();
+  $("listTitle").textContent = m === "identify" ? "Cases" : "Design tasks";
+  const done = its.filter((x) => { const r = resultOf(m, x.id); return r && r.checked; }).length;
+  $("listCount").textContent = "· " + done + " / " + its.length + " done";
+  $("list").innerHTML = its.map((x, i) => {
+    const r = resultOf(m, x.id);
+    const cls = !r || !r.checked ? "" : r.full ? "done" : "part";
+    return '<li><button data-i="' + i + '"' + (i === cur[m] ? ' aria-current="true"' : "") + '><span class="dot ' + cls + '" aria-hidden="true"></span>' + esc(x.title) + "</button></li>";
+  }).join("");
+  $("list").querySelectorAll("button").forEach((b) => (b.onclick = () => {
+    go(Number(b.dataset.i));
+    if (matchMedia("(max-width: 900px)").matches) $("card").scrollIntoView({ behavior: "smooth" });
+  }));
+}
+function renderScore() {
+  const a = CASES.filter((x) => store.id[x.id] && store.id[x.id].checked), af = a.filter((x) => store.id[x.id].full).length;
+  const b = TASKS.filter((x) => store.build[x.id] && store.build[x.id].checked), bf = b.filter((x) => store.build[x.id].full).length;
+  $("score").innerHTML = "<div><b>Identify</b>: " + af + " fully right of " + a.length + " checked (" + CASES.length + " cases)</div><div><b>Build</b>: " + bf + " minimal designs of " + b.length + " checked (" + TASKS.length + " tasks)</div>";
+}
+
+/* ============================================================ render: identify */
+function renderIdentify() {
+  const c = CASES[cur.identify];
+  const r = store.id[c.id] = store.id[c.id] || { arch: null, learn: null, checked: false };
+  let h = '<div class="pad"><h1>' + esc(c.title) + '</h1><div class="meta"><span>Case ' + (cur.identify + 1) + " of " + CASES.length + '</span></div><p class="desc">' + (r.checked ? highlightClues(c.text, c.clues) : esc(c.text)) + "</p>" + (r.checked ? LEGEND : "") + "</div>";
+  h += '<div class="step pad"><h3><span class="n">1</span>Which architecture explains this behaviour?<button data-tip="archs" aria-label="The four architectures"></button></h3><div class="arch" role="radiogroup">';
+  for (const a of ARCH) {
+    let mark = "";
+    if (r.checked) mark = a.k === c.a ? " correct" : a.k === r.arch ? " wrong" : "";
+    h += '<label><input type="radio" name="arch" value="' + a.k + '"' + (r.arch === a.k ? " checked" : "") + (r.checked ? " disabled" : "") + '><span class="opt' + mark + '"><b>' + a.name + "</b><span>" + a.sub + "</span></span></label>";
+  }
+  h += '</div><div class="learnq"><span>Does it <b>learn</b> (change its own program from feedback)?</span><span class="pills">';
+  for (const [v, t] of [["yes", "Yes"], ["no", "No"]]) {
+    const corr = r.checked && (v === "yes") === c.learn ? " correct" : "";
+    h += '<label><input type="radio" name="learn" value="' + v + '"' + (r.learn === v ? " checked" : "") + (r.checked ? " disabled" : "") + '><span class="' + corr.trim() + '">' + t + "</span></label>";
+  }
+  h += "</span></div>";
+  if (r.checked) {
+    const okA = r.arch === c.a, okL = (r.learn === "yes") === c.learn;
+    const cls = okA && okL ? "ok" : okA || okL ? "mid" : "bad";
+    h += '<div class="feedback ' + cls + '"><p><b>' + (okA && okL ? "✓ Right." : okA ? "Architecture right, learning wrong." : okL ? "Learning right, architecture wrong." : "✗ Not quite.") + "</b> It is a <b>" + ARCH_NAME[c.a].toLowerCase() + (c.learn ? " with learning" : "") + "</b>.</p><p>" + esc(c.why) + "</p></div>";
+  }
+  h += '<div class="actions">';
+  if (!r.checked) h += '<button class="primary" id="check">Check</button><span class="small" id="msg"></span>';
+  else h += '<button id="retry">Try again</button>';
+  h += '<span style="flex:1"></span><button id="prev"' + (cur.identify === 0 ? " disabled" : "") + '>← Previous</button><button id="next"' + (cur.identify === CASES.length - 1 ? " disabled" : "") + ">Next case →</button></div></div>";
+  $("card").innerHTML = h;
+  $("card").querySelectorAll('input[name=arch]').forEach((i) => (i.onchange = () => { r.arch = i.value; save(); }));
+  $("card").querySelectorAll('input[name=learn]').forEach((i) => (i.onchange = () => { r.learn = i.value; save(); }));
+  if ($("check")) $("check").onclick = () => {
+    if (!r.arch || !r.learn) { $("msg").textContent = "Answer both questions first."; return; }
+    r.checked = true; r.full = r.arch === c.a && (r.learn === "yes") === c.learn; save(); renderAll();
+  };
+  if ($("retry")) $("retry").onclick = () => { store.id[c.id] = { arch: null, learn: null, checked: false }; save(); renderAll(); };
+  $("prev").onclick = () => go(cur.identify - 1);
+  $("next").onclick = () => go(cur.identify + 1);
+}
+
+/* ============================================================ render: build */
+function renderBuild() {
+  const t = TASKS[cur.build];
+  const r = store.build[t.id] = store.build[t.id] || { c: Object.fromEntries(ALLC.map((k) => [k, false])), checked: false };
+  const c = r.c, cl = classify(c);
+  // evaluation (only shown after check)
+  const needs = t.reqs.map((q) => ({ ...q, ok: NEED[q.need].ok(c) }));
+  const justified = new Set(t.reqs.flatMap((q) => JUSTIFY[q.need]));
+  // memory is satisfied by either model; don't flag the unused one as extra if the other is absent
+  const extras = ALLC.filter((k) => c[k] && !justified.has(k));
+  if (justified.has("evolves") && justified.has("actions") && !t.reqs.some((q) => q.need === "predict")) {
+    // both models allowed for memory; neither counts as extra
+  }
+  const missing = new Set();
+  if (r.checked) needs.forEach((q) => { if (!q.ok) { if (q.need === "memory") { if (!c.state) missing.add("state"); if (!c.evolves && !c.actions) { missing.add("evolves"); missing.add("actions"); } } else JUSTIFY[q.need].forEach((k) => { if (!c[k]) missing.add(k); }); if (q.need === "goals" && !c.goals && !c.utility) missing.add("goals"); } });
+  let h = '<div class="pad"><h1>' + esc(t.title) + '</h1><div class="meta"><span>Task ' + (cur.build + 1) + " of " + TASKS.length + '</span></div><p class="desc">' + esc(t.text) + '</p><p style="margin:10px 0 0;font-weight:600">The agent must:</p><ul class="reqs">';
+  needs.forEach((q) => {
+    const st = r.checked ? (q.ok ? "ok" : "bad") : "";
+    h += '<li class="' + st + '"><span class="st">' + (r.checked ? (q.ok ? "✓" : "✗") : "•") + "</span><span>" + esc(q.t) + (r.checked && !q.ok ? '<span class="why">' + esc(NEED[q.need].why) + "</span>" : "") + "</span></li>";
+  });
+  h += '</ul></div><div class="step pad"><h3><span class="n">1</span>Assemble the agent<button data-tip="components" aria-label="About the components"></button></h3><div class="build"><div class="comp">';
+  for (const g of COMPONENTS) {
+    h += "<h4>" + g.group + "</h4>";
+    for (const it of g.items) {
+      const flag = r.checked && c[it.k] && extras.includes(it.k) ? " extra" : r.checked && !c[it.k] && missing.has(it.k) ? " missing" : "";
+      h += '<label class="tog' + flag + '"><input type="checkbox" data-k="' + it.k + '"' + (c[it.k] ? " checked" : "") + '><span class="sw" style="background:var(--c-' + it.kind + ')"></span>' + it.name + "</label>";
+    }
+  }
+  h += '</div><div><div class="diagram">' + drawAgent(c) + '</div><div class="verdict"><span>This is a</span><b>' + esc(cl.name) + "</b></div>";
+  if (cl.warns.length) h += '<ul class="warns">' + cl.warns.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul>";
+  h += "</div></div>";
+  if (r.checked) {
+    const allOk = needs.every((q) => q.ok), minimal = extras.length === 0 && cl.warns.length === 0;
+    const cls = allOk && minimal ? "ok" : allOk ? "mid" : "bad";
+    h += '<div class="feedback ' + cls + '"><p><b>' + (allOk && minimal ? "✓ Every requirement met with the simplest architecture." : allOk ? "✓ Every requirement can be met, but the design is more complex than it needs to be." : "✗ Some requirements can't be met yet (marked ✗ above).") + "</b> Target: <b>" + esc(t.target) + "</b>.</p>";
+    if (extras.length) h += '<ul class="extras">' + extras.map((k) => "<li><b>" + CNAME[k] + "</b>: not needed here — " + esc(k === "goals" && c.utility ? "the utility function already expresses what the agent should achieve." : EXTRA_WHY[k]) + "</li>").join("") + "</ul>";
+    if (cl.warns.length) h += "<p>Fix the warnings under the diagram too.</p>";
+    h += "</div>";
+  }
+  h += '<div class="actions">';
+  if (!r.checked) h += '<button class="primary" id="check">Check design</button>';
+  else h += '<button id="retry">Edit design</button><button id="clear">Start from scratch</button>';
+  h += '<span style="flex:1"></span><button id="prev"' + (cur.build === 0 ? " disabled" : "") + '>← Previous</button><button id="next"' + (cur.build === TASKS.length - 1 ? " disabled" : "") + ">Next task →</button></div></div>";
+  $("card").innerHTML = h;
+  $("card").querySelectorAll(".comp input").forEach((i) => (i.onchange = () => { c[i.dataset.k] = i.checked; r.checked = false; save(); renderAll(true); }));
+  if ($("check")) $("check").onclick = () => {
+    const ok = t.reqs.every((q) => NEED[q.need].ok(c));
+    const ex = ALLC.filter((k) => c[k] && !new Set(t.reqs.flatMap((q) => JUSTIFY[q.need])).has(k));
+    r.checked = true; r.full = ok && ex.length === 0 && classify(c).warns.length === 0; save(); renderAll();
+  };
+  if ($("retry")) $("retry").onclick = () => { r.checked = false; save(); renderAll(); };
+  if ($("clear")) $("clear").onclick = () => { store.build[t.id] = null; delete store.build[t.id]; save(); renderAll(); };
+  $("prev").onclick = () => go(cur.build - 1);
+  $("next").onclick = () => go(cur.build + 1);
+}
+
+/* ============================================================ global */
+let HELP = null;
+function renderAll(keepFocus) {
+  const m = mode();
+  $("mIdentify").setAttribute("aria-pressed", m === "identify");
+  $("mBuild").setAttribute("aria-pressed", m === "build");
+  $("modeDesc").textContent = m === "identify" ? "Read a behaviour → name the architecture." : "Meet the requirements with the simplest agent.";
+  const focusK = keepFocus && document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.k : null;
+  renderList(); renderScore();
+  if (m === "identify") renderIdentify(); else renderBuild();
+  if (focusK) { const el = $("card").querySelector('input[data-k="' + focusK + '"]'); if (el) el.focus(); }
+  if (HELP) HELP.wireInfo($("card"));
+}
+function go(i) {
+  const m = mode();
+  cur[m] = Math.max(0, Math.min(items().length - 1, i));
+  try { history.replaceState(null, "", "#" + items()[cur[m]].id); } catch (e) {}
+  renderAll();
+  window.scrollTo({ top: Math.min(window.scrollY, $("card").offsetTop - 10) });
+}
+function setMode(m) { store.mode = m; save(); go(cur[m]); }
+$("mIdentify").onclick = () => setMode("identify");
+$("mBuild").onclick = () => setMode("build");
+$("resetAll").onclick = () => {
+  const b = $("resetAll");
+  if (!b.dataset.armed) {
+    b.dataset.armed = "1"; b.textContent = "Click again to delete all answers"; b.classList.add("primary");
+    b._t = setTimeout(() => { delete b.dataset.armed; b.textContent = "Reset all progress"; b.classList.remove("primary"); }, 4000);
+    return;
+  }
+  clearTimeout(b._t); delete b.dataset.armed; b.classList.remove("primary");
+  store = { mode: store.mode, id: {}, build: {} }; save(); cur = { identify: 0, build: 0 };
+  renderAll(); b.textContent = "Progress cleared ✓";
+  setTimeout(() => { b.textContent = "Reset all progress"; }, 2500);
+};
+
+/* ---------- help kit ---------- */
+function helpKit(opts) {
+  // tips: {id: html}; buttons with data-tip="id" become info buttons
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  function ensureTip(id) {
+    if (document.getElementById("tip-" + id) || !opts.tips[id]) return;
+    const d = document.createElement("div");
+    d.id = "tip-" + id; d.className = "tip"; d.setAttribute("popover", ""); d.setAttribute("role", "note");
+    d.innerHTML = opts.tips[id];
+    host.appendChild(d);
+  }
+  function wireInfo(root) {
+    (root || document).querySelectorAll("[data-tip]:not([data-wired])").forEach((b) => {
+      const id = b.dataset.tip;
+      ensureTip(id);
+      b.dataset.wired = "1";
+      b.classList.add("info"); b.type = "button"; b.textContent = "i";
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", "More about this");
+      b.setAttribute("aria-expanded", "false");
+      b.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const p = document.getElementById("tip-" + id);
+        if (!p) return;
+        if (typeof p.togglePopover !== "function") { alert(p.textContent); return; }
+        p._anchor = b;
+        p.togglePopover();
+      });
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    const p = e.target;
+    if (!p.classList || !p.classList.contains("tip")) return;
+    const b = p._anchor;
+    if (b) b.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+    if (e.newState === "open" && b) place(p);
+  }, true);
+  function place(p) {
+    const b = p._anchor; if (!b) return;
+    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    if (r.bottom < 0 || r.top > innerHeight || !b.isConnected) { p.hidePopover && p.hidePopover(); return; }
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+  }
+  const replace = () => document.querySelectorAll(".tip:popover-open").forEach(place);
+  addEventListener("scroll", replace, { passive: true, capture: true });
+  addEventListener("resize", replace);
+
+  // quick start strip
+  const qk = opts.key + "-quick-hidden";
+  const quick = document.getElementById("quick");
+  let hidden = false;
+  try { hidden = localStorage.getItem(qk) === "1"; } catch (e) {}
+  if (quick) {
+    quick.hidden = hidden;
+    quick.querySelector(".x").onclick = () => { quick.hidden = true; try { localStorage.setItem(qk, "1"); } catch (e) {} };
+    const more = quick.querySelector(".more"); if (more) more.onclick = () => openHelp();
+  }
+  // drawer
+  const dlg = document.getElementById("help");
+  function openHelp(section) {
+    if (!dlg) return;
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (section) { const d = dlg.querySelector('details[data-s="' + section + '"]'); if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } }
+  }
+  if (dlg) {
+    dlg.querySelector(".close").onclick = () => dlg.close();
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  document.querySelectorAll("[data-open-help]").forEach((b) => (b.onclick = () => openHelp(b.dataset.openHelp)));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, textarea, select")) return;
+    if (e.key === "?" ) { e.preventDefault(); dlg && dlg.open ? dlg.close() : openHelp(); }
+  });
+  wireInfo();
+  return { wireInfo, openHelp, firstVisit: !hidden };
+}
+
+const TIPS = {
+  progress: "<p><b>Identify</b> counts cases where both the architecture and the learning answer were right. <b>Build</b> counts designs that meet every requirement <b>without</b> unnecessary components.</p><p>Saved only in this browser.</p>",
+  archs: "<p><b>Simple reflex</b>: current percept → rule, no memory.</p><p><b>Model-based reflex</b>: keeps internal state (memory + model of the world), still decides by rules.</p><p><b>Goal-based</b>: has explicit goals and predicts outcomes of actions to reach them (search, planning).</p><p><b>Utility-based</b>: rates states on a scale, trades off criteria and probabilities.</p><p>Pick the <b>simplest</b> one that explains the behaviour.</p>",
+  components: "<p>Tick components on the left; the diagram redraws. Colours: <span style='color:var(--c-state)'>blue</span> memory and models, <span style='color:var(--c-goal)'>amber</span> goals, <span style='color:var(--c-utility)'>purple</span> utility, <span style='color:var(--c-learn)'>green</span> learning.</p><p>After <b>Check design</b>: components marked <b>red</b> are missing for a requirement; <b>amber</b> ones are not needed.</p>",
+  demo: "<p>Like this. Click elsewhere or press <kbd>Esc</kbd> to close.</p>",
+};
+
+/* ============================================================ init */
+function fromHash() {
+  const h = location.hash.slice(1);
+  const ci = CASES.findIndex((x) => x.id === h), ti = TASKS.findIndex((x) => x.id === h);
+  if (ci >= 0) { store.mode = "identify"; cur.identify = ci; }
+  if (ti >= 0) { store.mode = "build"; cur.build = ti; }
+  return ci >= 0 || ti >= 0;
+}
+addEventListener("hashchange", () => { if (fromHash()) renderAll(); });
+(function init() {
+  fromHash();
+    HELP = helpKit({ key: "wa", tips: TIPS });
+  renderAll();
+})();
+</script>
+</body>
+</html>
